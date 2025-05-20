@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PICS>
+    <!-- Cluster: On/Off -->
+    <PICS_Symbol name="ON_OFF_CLUSTER_CLIENT_SUPPORTED" value="1"/>
+    <PICS_Symbol name="ON_OFF_CLUSTER_SERVER_SUPPORTED" value="1"/>
+
+    <!-- Cluster: Level Control -->
+    <PICS_Symbol name="LEVEL_CONTROL_CLUSTER_CLIENT_SUPPORTED" value="1"/>
+    <PICS_Symbol name="LEVEL_CONTROL_CLUSTER_SERVER_SUPPORTED" value="1"/>
+
+    <!-- Cluster: Color Control -->
+    <PICS_Symbol name="COLOR_CONTROL_CLUSTER_CLIENT_SUPPORTED" value="1"/>
+    <PICS_Symbol name="COLOR_CONTROL_CLUSTER_SERVER_SUPPORTED" value="1"/>
+
+    <!-- Extended Color Light Features -->
+    <PICS_Symbol name="COLOR_CONTROL_FEATURE_LIGHT_HSV_SUPPORTED" value="1"/>
+    <PICS_Symbol name="COLOR_CONTROL_FEATURE_ENHANCED_HUE_SUPPORTED" value="1"/>
+    <PICS_Symbol name="COLOR_CONTROL_FEATURE_COLOR_LOOP_SUPPORTED" value="1"/>
+    <PICS_Symbol name="COLOR_CONTROL_FEATURE_XY_SUPPORTED" value="1"/>
+    <PICS_Symbol name="COLOR_CONTROL_FEATURE_COLOR_TEMPERATURE_SUPPORTED" value="1"/>
+
+    <!-- Device Type: Extended Color Light -->
+    <PICS_Symbol name="LIGHTING_APPLICATION_DEVICE_TYPE_EXTENDED_COLOR_LIGHT" value="1"/>
+
+    <!-- Basic Test Features -->
+    <PICS_Symbol name="LIGHTING_APPLICATION_TEST_EVENT_TRIGGER_SUPPORTED" value="1"/>
+
+    <!-- Optional Clusters -->
+    <PICS_Symbol name="OCCUPANCY_SENSING_CLUSTER_CLIENT_SUPPORTED" value="0"/>
+    <PICS_Symbol name="OCCUPANCY_SENSING_CLUSTER_SERVER_SUPPORTED" value="0"/>
+
+    <!-- IAS Zone (opcional) -->
+    <PICS_Symbol name="IAS_ZONE_CLUSTER_CLIENT_SUPPORTED" value="0"/>
+    <PICS_Symbol name="IAS_ZONE_CLUSTER_SERVER_SUPPORTED" value="0"/>
+
+    <!-- OTA (opcional) -->
+    <PICS_Symbol name="OTA_CLUSTER_CLIENT_SUPPORTED" value="1"/>
+    <PICS_Symbol name="OTA_CLUSTER_SERVER_SUPPORTED" value="0"/>
+
+    <!-- Bridged Node Support (por si aplica) -->
+    <PICS_Symbol name="BRIDGED_NODE_DEVICE_TYPE_SUPPORTED" value="0"/>
+
+    <!-- Para pruebas locales -->
+    <PICS_Symbol name="CHIP_DEVICE_CONFIG_DEVICE_VENDOR_ID" value="65521"/>
+    <PICS_Symbol name="CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_ID" value="32779"/>
+</PICS>

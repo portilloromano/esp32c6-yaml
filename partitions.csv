@@ -1,0 +1,11 @@
+# Name,   Type, SubType, Offset,  Size, Flags
+# Nota: La partición de firmware debe estar alineada a 64K, los primeros 36K están reservados para el bootloader y la tabla de particiones
+
+esp_secure_cert,  0x3F, ,         0xD000,   0x2000,   encrypted
+nvs,              data, nvs,      0x10000,  0xC000,
+nvs_keys,         data, nvs_keys, 0x1C000,  0x1000,   encrypted
+otadata,          data, ota,      0x1D000,  0x2000,
+phy_init,         data, phy,      0x1F000,  0x1000,
+ota_0,            app,  ota_0,    0x20000,  0x7EA000,
+ota_1,            app,  ota_1,    0x810000, 0x7EA000,
+fctry,            data, nvs,      0xFFA000, 0x6000
