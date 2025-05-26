@@ -2,3 +2,6 @@
 /build
 /managed_components
 /output_fabrica
+
+sdkconfig.default
+sdkconfig.old

@@ -13,10 +13,7 @@
 #include <freertos/task.h>
 #include <esp_heap_caps.h>
 
-#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
 #include <platform/ESP32/OpenthreadLauncher.h>
-#endif
-
 #include <platform/CHIPDeviceLayer.h>
 
 // Using namespaces for convenience
@@ -74,20 +71,20 @@ extern "C" void app_main(void)
     light_cfg.on_off.on_off = DEFAULT_POWER;
     light_cfg.level_control.current_level = DEFAULT_BRIGHTNESS;
 
-    // Configuración del Cluster ColorControl:
-    // Establecemos los modos iniciales.
+    // Configuración del Cluster ColorControl
     light_cfg.color_control.color_mode = static_cast<uint8_t>(chip::app::Clusters::ColorControl::ColorMode::kColorTemperature);
     light_cfg.color_control.enhanced_color_mode = static_cast<uint8_t>(chip::app::Clusters::ColorControl::ColorMode::kColorTemperature);
-    
-    // NO intentamos establecer ningún miembro dentro de light_cfg.color_control.features aquí
-    // para "habilitar" las features. Suponemos que extended_color_light::create()
-    // las habilitará por defecto según el tipo de dispositivo.
 
-    // Si necesitaras pasar configuraciones específicas para una feature, lo harías
-    // modificando los miembros de la sub-estructura correspondiente, por ejemplo:
-    // light_cfg.color_control.features.color_temperature.color_temp_physical_min_mireds = VALOR_MIN_MIREDS;
-    // light_cfg.color_control.features.color_temperature.color_temp_physical_max_mireds = VALOR_MAX_MIREDS;
-    // Pero no es necesario para la simple habilitación si el endpoint lo hace por defecto.
+    // Habilitar las features deseadas usando el mapa de bits 'feature_flags'
+    light_cfg.color_control.feature_flags =
+        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kHueAndSaturation) |
+        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kEnhancedHue) |
+        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kColorLoop) |
+        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kXy) |
+        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kColorTemperature);
+
+    light_cfg.color_control.features.color_temperature.color_temp_physical_min_mireds = DEFAULT_COLOR_TEMP_PHYSICAL_MIN_MIREDS;
+    light_cfg.color_control.features.color_temperature.color_temp_physical_max_mireds = DEFAULT_COLOR_TEMP_PHYSICAL_MAX_MIREDS;
 
     endpoint_t *endpoint = esp_matter::endpoint::extended_color_light::create(node, &light_cfg, ENDPOINT_FLAG_NONE, light_handle);
     ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create Light endpoint"));
@@ -110,7 +107,6 @@ extern "C" void app_main(void)
     }
 
     // 6. Configure OpenThread
-#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
     ESP_LOGI(TAG, "Configuring OpenThread...");
     esp_openthread_platform_config_t config = {
         .radio_config = ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG(),
@@ -119,9 +115,6 @@ extern "C" void app_main(void)
     };
     set_openthread_platform_config(&config);
     ESP_LOGI(TAG, "OpenThread configured.");
-#else
-    ESP_LOGW(TAG, "Matter over Thread is disabled in sdkconfig.");
-#endif
 
     // 7. Start the Matter Stack
     ESP_LOGI(TAG, "Starting Matter stack...");
@@ -187,8 +180,23 @@ esp_err_t app_attribute_update_cb(callback_type_t type, uint16_t endpoint_id, ui
 esp_err_t app_identification_cb(identification::callback_type_t type, uint16_t endpoint_id, uint8_t effect_id,
                                 uint8_t effect_variant, void *priv_data)
 {
-    ESP_LOGI(TAG, "Identification callback: EP=%u, Type=%d, EffectId=0x%x, Variant=0x%x",
+    ESP_LOGI(TAG, "Identification callback received: EP=%u, Type=%d, EffectId=0x%x, Variant=0x%x",
              endpoint_id, type, effect_id, effect_variant);
+
+    // Solo actuar sobre el endpoint de la luz principal si es necesario diferenciar
+    // if (endpoint_id == light_endpoint_id) { // O si es un endpoint raíz y aplica a todos
+    app_driver_handle_t driver_handle = (app_driver_handle_t)priv_data;
+    if (driver_handle)
+    {
+        app_driver_perform_identification(driver_handle, type, effect_id);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Identify CB: Driver handle (priv_data) is NULL for endpoint %u", endpoint_id);
+    }
+    // } else {
+    //    ESP_LOGI(TAG, "Identification request for unhandled endpoint_id: %u", endpoint_id);
+    // }
     return ESP_OK;
 }
 

@@ -22,6 +22,8 @@ VENDOR_ID="0xFFF1"
 VENDOR_NAME="Home"
 PRODUCT_ID="0x8000"
 PRODUCT_NAME="Color Temperature Light"
+HARDWARE_VERSION="1"
+MANUFACTURING_DATE=$(date +%Y-%m-%d)
 DEVICE_TYPE_ID="0x010D"
 
 # --- Funciones ---
@@ -97,7 +99,8 @@ $MFG_TOOL_CMD \
     --product-id "$PRODUCT_ID" \
     --vendor-name "$VENDOR_NAME" \
     --product-name "$PRODUCT_NAME" \
-    --hw-ver 1 \
+    --hw-ver "$HARDWARE_VERSION" \
+    --mfg-date "$MANUFACTURING_DATE" \
     -cd "$CD_FILE" \
     --pai \
     -c "$PAI_CERT_PEM" \

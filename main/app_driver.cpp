@@ -1,7 +1,7 @@
 #include <app_priv.h>
 
 #include <stdio.h>
-#include <led_strip.h>
+#include <led_indicator.h>
 #include <esp_err.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
@@ -9,16 +9,37 @@
 #include <iot_button.h>
 #include "driver/gpio.h"
 #include "button_gpio.h"
-#include "led_indicator.h"
 #include <esp_matter.h>
-#include <platform/ConfigurationManager.h>
-#include <app/server/Server.h>
+#include <esp_matter_cluster.h>
 
 using namespace chip::app::Clusters;
 using namespace esp_matter;
 
 static const char *TAG = "app_driver";
 extern uint16_t light_endpoint_id;
+
+static uint8_t s_short_press_count = 0;
+static TickType_t s_last_short_press_tick = 0;
+
+// Variables para guardar el estado del LED antes de la identificación
+static bool s_previous_on_off_state = false;
+static led_indicator_ihsv_t s_previous_hsv_state = {0, 0, 0};
+static bool s_is_identifying = false;
+
+// Definición del patrón de parpadeo para Identificación
+const static blink_step_t identify_blink_sequence[] = {
+    // Corregido a blink_step_t
+    {LED_BLINK_BRIGHTNESS, LED_STATE_ON, IDENTIFY_BLINK_ON_TIME_MS},
+    {LED_BLINK_BRIGHTNESS, LED_STATE_OFF, IDENTIFY_BLINK_OFF_TIME_MS},
+    {LED_BLINK_LOOP, 0, 0},
+};
+
+const static blink_step_t *app_blink_lists[] = {
+    // Corregido a blink_step_t
+    identify_blink_sequence,
+};
+
+#define BLINK_TYPE_IDENTIFY 0
 
 static esp_err_t app_driver_light_set_power(led_indicator_handle_t handle, esp_matter_attr_val_t *val)
 {
@@ -263,6 +284,107 @@ esp_err_t app_driver_light_set_defaults(uint16_t endpoint_id)
     return err;
 }
 
+void app_driver_perform_identification(app_driver_handle_t driver_handle, esp_matter::identification::callback_type_t type, uint8_t effect_id)
+{
+    led_indicator_handle_t handle = (led_indicator_handle_t)driver_handle;
+    ESP_LOGI(TAG, "Identify action: Type=%d, EffectID=0x%02x", (int)type, effect_id);
+
+#if LED_STRIP_LED_COUNT > 0
+    if (!handle)
+    {
+        ESP_LOGE(TAG, "Identify: Invalid LED strip driver handle.");
+        return;
+    }
+#endif
+
+    if (type == esp_matter::identification::START)
+    {
+        ESP_LOGI(TAG, "Identify START received.");
+        // Solo iniciar un nuevo parpadeo de identificación si no se está identificando ya
+        // O si LED_STRIP_LED_COUNT es 0 (en cuyo caso solo logueamos y manejamos el estado)
+        if (s_is_identifying && LED_STRIP_LED_COUNT > 0)
+        {
+            ESP_LOGI(TAG, "Identify: Already identifying. Ignoring new START.");
+            return;
+        }
+        s_is_identifying = true;
+
+#if LED_STRIP_LED_COUNT > 0
+        ESP_LOGI(TAG, "Saving current LED state before Identify.");
+        uint8_t current_brightness = led_indicator_get_brightness(handle);
+        s_previous_on_off_state = (current_brightness > 0);
+        s_previous_hsv_state.value = led_indicator_get_hsv(handle);
+
+        ESP_LOGD(TAG, "Identify: State saved. Prev OnOff: %d, Prev H: %d, S: %d, V: %d, Brightness: %d",
+                 s_previous_on_off_state, s_previous_hsv_state.h, s_previous_hsv_state.s, s_previous_hsv_state.v, current_brightness);
+
+        // Comprobar el effect_id para el parpadeo
+        if (effect_id == static_cast<uint8_t>(chip::app::Clusters::Identify::EffectIdentifierEnum::kBlink))
+        {
+            ESP_LOGI(TAG, "Identify: Starting Blink effect (blink_type %d).", BLINK_TYPE_IDENTIFY);
+            esp_err_t err_start = led_indicator_start(handle, BLINK_TYPE_IDENTIFY);
+            if (err_start != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Identify: Failed to start blink: %s", esp_err_to_name(err_start));
+            }
+        }
+        else
+        {
+            // Si se recibe un effect_id diferente a kBlink, la especificación Matter
+            // dice que el dispositivo PUEDE ignorarlo o realizar una acción por defecto.
+            // Aquí, optamos por realizar el parpadeo por defecto también para otros efectos no implementados.
+            ESP_LOGW(TAG, "Identify: Effect ID 0x%02x is not kBlink. Performing default blink (type %d) as fallback.", effect_id, BLINK_TYPE_IDENTIFY);
+            esp_err_t err_start = led_indicator_start(handle, BLINK_TYPE_IDENTIFY);
+            if (err_start != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Identify: Failed to start fallback blink for effect 0x%02x: %s", effect_id, esp_err_to_name(err_start));
+            }
+        }
+#else
+        ESP_LOGI(TAG, "Identify START (No LED Strip defined, visual identification skipped, only state managed).");
+#endif
+    }
+    else if (type == esp_matter::identification::STOP)
+    {
+        ESP_LOGI(TAG, "Identify STOP received.");
+#if LED_STRIP_LED_COUNT > 0
+        if (s_is_identifying)
+        { // Solo actuar si estábamos identificando
+            ESP_LOGI(TAG, "Stopping Identify blink (type %d).", BLINK_TYPE_IDENTIFY);
+            esp_err_t err_stop = led_indicator_stop(handle, BLINK_TYPE_IDENTIFY);
+            if (err_stop != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Identify: Failed to stop blink: %s", esp_err_to_name(err_stop));
+            }
+
+            ESP_LOGI(TAG, "Restoring previous LED state.");
+            ESP_LOGD(TAG, "Identify: Restoring to OnOff: %d, H: %d, S: %d, V: %d",
+                     s_previous_on_off_state, s_previous_hsv_state.h, s_previous_hsv_state.s, s_previous_hsv_state.v);
+
+            esp_err_t err_hsv = led_indicator_set_hsv(handle, s_previous_hsv_state.value);
+            if (err_hsv != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Identify: Failed to restore HSV state: %s", esp_err_to_name(err_hsv));
+            }
+            // Asegurar el estado on/off después de restaurar HSV, ya que set_hsv podría encender el LED si V > 0
+            esp_err_t err_on_off = led_indicator_set_on_off(handle, s_previous_on_off_state);
+            if (err_on_off != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Identify: Failed to restore on/off state: %s", esp_err_to_name(err_on_off));
+            }
+            ESP_LOGI(TAG, "Identify: Previous LED state restoration attempted.");
+        }
+        else
+        {
+            ESP_LOGI(TAG, "Identify STOP received, but was not actively identifying with LEDs.");
+        }
+#else
+        ESP_LOGI(TAG, "Identify STOP (No LED Strip defined, only state managed).");
+#endif
+        s_is_identifying = false; // Siempre resetear la bandera de estado
+    }
+}
+
 // Callback que se ejecuta cuando se suelta el botón tras una presión larga (>=5000 ms)
 static void button_long_press_cb(void *btn_handle, void *usr_data)
 {
@@ -288,83 +410,121 @@ static void button_long_press_cb(void *btn_handle, void *usr_data)
 // Callback para la acción de single click (toque corto)
 static void button_short_press_cb(void *btn_handle, void *usr_data)
 {
-    // Obtener el endpoint usando el ID global light_endpoint_id
-    endpoint_t *ep = endpoint::get(light_endpoint_id);
-    if (ep == NULL)
+    ESP_LOGI(TAG, "Button Short Press: Click detectado.");
+
+    // --- Lógica de detección de multi-pulsación (fuera del bloqueo del stack de Matter) ---
+    TickType_t current_tick = xTaskGetTickCount();
+
+    // Si es la primera pulsación después de un timeout, o la primera vez, reiniciar contador a 1
+    if (s_short_press_count == 0 ||
+        ((current_tick - s_last_short_press_tick) * portTICK_PERIOD_MS > CONSECUTIVE_PRESS_TIMEOUT_MS))
     {
-        ESP_LOGE(TAG, "No se encontró el endpoint con ID: %d", light_endpoint_id);
-        return;
-    }
-
-    // Obtener el cluster OnOff desde el endpoint
-    cluster_t *onoff_cluster = cluster::get(ep, OnOff::Id);
-    if (onoff_cluster == NULL)
-    {
-        ESP_LOGE(TAG, "No se encontró el cluster OnOff");
-        return;
-    }
-
-    // Obtener el atributo OnOff
-    attribute_t *onoff_attr = attribute::get(onoff_cluster, OnOff::Attributes::OnOff::Id);
-    if (onoff_attr == NULL)
-    {
-        ESP_LOGE(TAG, "No se encontró el atributo OnOff");
-        return;
-    }
-
-    // Leer el valor actual del atributo
-    esp_matter_attr_val_t current_val = esp_matter_invalid(NULL);
-    attribute::get_val(onoff_attr, &current_val);
-    bool current_state = current_val.val.b;
-
-    // Toggle del estado: si está encendido, se apaga; si está apagado, se enciende.
-    bool new_state = !current_state;
-    esp_matter_attr_val_t new_val = esp_matter_bool(new_state);
-
-    if (new_state)
-    {
-        ESP_LOGI(TAG, "Single click: encendiendo LED");
+        s_short_press_count = 1;
+        ESP_LOGI(TAG, "Button Short Press: Conteo reiniciado a 1.");
     }
     else
     {
-        ESP_LOGI(TAG, "Single click: apagando LED");
+        s_short_press_count++;
     }
+    s_last_short_press_tick = current_tick;
+    ESP_LOGI(TAG, "Button Short Press: Conteo actual = %u", s_short_press_count);
 
-    // Obtener el handle del driver desde los datos privados del endpoint
-    void *driver_handle = endpoint::get_priv_data(light_endpoint_id);
-    if (driver_handle == NULL)
+    // --- Lógica de acción (dentro del bloqueo del stack de Matter) ---
+    if (chip::DeviceLayer::PlatformMgr().TryLockChipStack())
     {
-        ESP_LOGE(TAG, "No se encontró el driver handle en el endpoint");
-        return;
-    }
+        // --- Acción de Toggle On/Off (se ejecuta en cada pulsación) ---
+        endpoint_t *ep = endpoint::get(light_endpoint_id);
+        if (ep == NULL)
+        {
+            ESP_LOGE(TAG, "Button CB: No se encontró el endpoint con ID: %u", light_endpoint_id);
+            chip::DeviceLayer::PlatformMgr().UnlockChipStack();
+            s_short_press_count = 0; // Reiniciar conteo si hay error temprano
+            return;
+        }
 
-    // Actualizar el estado del LED usando la función del driver
-    esp_err_t err = app_driver_light_set_power(driver_handle, &new_val);
-    if (err != ESP_OK)
+        cluster_t *onoff_cluster = cluster::get(ep, OnOff::Id);
+        attribute_t *onoff_attr = NULL;
+        if (onoff_cluster)
+        {
+            onoff_attr = attribute::get(onoff_cluster, OnOff::Attributes::OnOff::Id);
+        }
+
+        if (onoff_attr == NULL)
+        {
+            ESP_LOGE(TAG, "Button CB: No se encontró el atributo OnOff para EP %u", light_endpoint_id);
+            // Continuar para posible acción de Identify, pero el toggle no funcionará
+        }
+        else
+        {
+            esp_matter_attr_val_t current_val = esp_matter_invalid(NULL);
+            esp_err_t err_get = attribute::get_val(onoff_attr, &current_val);
+            if (err_get != ESP_OK)
+            {
+                ESP_LOGE(TAG, "Button CB: Fallo al obtener valor del atributo OnOff: %s", esp_err_to_name(err_get));
+                // Continuar para posible acción de Identify
+            }
+            else
+            {
+                bool current_state = current_val.val.b;
+                bool new_state = !current_state;
+                esp_matter_attr_val_t new_val_matter = esp_matter_bool(new_state);
+
+                ESP_LOGI(TAG, "Button CB: Cambiando luz de %s a %s", current_state ? "ON" : "OFF", new_state ? "ON" : "OFF");
+                esp_err_t err_update = attribute::update(light_endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id, &new_val_matter);
+                if (err_update != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "Button CB: Fallo al actualizar atributo OnOff: %s", esp_err_to_name(err_update));
+                }
+            }
+        }
+
+        // --- Acción de Identificación si se alcanza el conteo ---
+        if (s_short_press_count >= IDENTIFY_TRIGGER_COUNT)
+        {
+            ESP_LOGI(TAG, "Button Short Press: %u pulsaciones alcanzadas. Activando Identify por %d segundos.",
+                     IDENTIFY_TRIGGER_COUNT, IDENTIFY_TIME_S);
+
+            esp_matter_attr_val_t identify_time_val = esp_matter_uint16(IDENTIFY_TIME_S); // IdentifyTime es uint16_t
+            // Asegúrate de que light_endpoint_id tiene el clúster Identify.
+            // El endpoint raíz (0) o el endpoint específico de la luz (1 en tu caso).
+            // El clúster Identify suele estar en todos los endpoints que deben identificarse.
+            // Si la luz es el endpoint 1, y tiene el clúster Identify:
+            esp_err_t identify_err = attribute::update(light_endpoint_id,
+                                                       chip::app::Clusters::Identify::Id,                           // ID del Clúster Identify
+                                                       chip::app::Clusters::Identify::Attributes::IdentifyTime::Id, // ID del Atributo IdentifyTime
+                                                       &identify_time_val);
+            if (identify_err == ESP_OK)
+            {
+                ESP_LOGI(TAG, "Button Short Press: Atributo IdentifyTime actualizado para iniciar identificación.");
+            }
+            else
+            {
+                ESP_LOGE(TAG, "Button Short Press: Fallo al actualizar atributo IdentifyTime: %s", esp_err_to_name(identify_err));
+            }
+            s_short_press_count = 0; // Reiniciar el contador después de activar Identify
+        }
+        chip::DeviceLayer::PlatformMgr().UnlockChipStack();
+    }
+    else
     {
-        ESP_LOGE(TAG, "Error al actualizar el estado del LED: %s", esp_err_to_name(err));
-        return;
+        ESP_LOGE(TAG, "Button CB: Fallo al adquirir el bloqueo del stack de Matter. Acción omitida.");
+        // Si no se puede obtener el bloqueo, es mejor reiniciar el contador para evitar
+        // una activación de Identify inesperada en la siguiente pulsación si el bloqueo sí se obtiene.
+        s_short_press_count = 0;
     }
-
-    // Actualizar el valor del atributo para reflejar el cambio de estado
-    // attribute::set_val(onoff_attr, &new_val);
-
-    attribute::update(light_endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id, &new_val);
 }
 
 app_driver_handle_t app_driver_light_init()
 {
 #if LED_STRIP_LED_COUNT > 0
-    // Configuración para el LED indicator en modo LED_STRIPS_MODE.
-    // Se declara como static para que la memoria persista.
+    ESP_LOGI(TAG, "Initializing LED strip light driver...");
     static led_indicator_strips_config_t strips_config = {
         .led_strip_cfg = {
             .strip_gpio_num = LED_GPIO,
             .max_leds = LED_STRIP_LED_COUNT,
             .led_model = LED_MODEL,
-            // Inicializa otros campos si es necesario.
         },
-        .led_strip_driver = LED_STRIP_RMT, // O el driver que utilices (por ejemplo, LED_STRIP_SPI).
+        .led_strip_driver = LED_STRIP_RMT,
         .led_strip_rmt_cfg = {
             .clk_src = RMT_CLK_SRC_DEFAULT,
             .resolution_hz = 10 * 1000 * 1000,
@@ -374,13 +534,12 @@ app_driver_handle_t app_driver_light_init()
     };
 
     led_indicator_config_t indicator_config = {
-        .mode = LED_STRIPS_MODE,                       // Modo que se adapte a tu hardware.
-        .led_indicator_strips_config = &strips_config, // Puntero a la configuración.
-        .blink_lists = NULL,                           // Sin patrones de blink predefinidos.
-        .blink_list_num = 0,
+        .mode = LED_STRIPS_MODE,
+        .led_indicator_strips_config = &strips_config,
+        .blink_lists = app_blink_lists,
+        .blink_list_num = sizeof(app_blink_lists) / sizeof(app_blink_lists[0]),
     };
 
-    // Crear la instancia del LED indicator.
     led_indicator_handle_t indicator = led_indicator_create(&indicator_config);
     if (indicator == NULL)
     {
@@ -388,11 +547,14 @@ app_driver_handle_t app_driver_light_init()
         return NULL;
     }
 
-    // Establecer el color por defecto (usa los valores que necesites).
-    ESP_ERROR_CHECK(led_indicator_set_hsv(indicator, SET_HSV(DEFAULT_HUE, DEFAULT_SATURATION, DEFAULT_BRIGHTNESS)));
+    // Establecer el color por defecto ya no es estrictamente necesario aquí si
+    // app_driver_light_set_defaults() se encarga después.
+    // ESP_ERROR_CHECK(led_indicator_set_hsv(indicator, SET_HSV(DEFAULT_HUE, DEFAULT_SATURATION, DEFAULT_BRIGHTNESS)));
 
+    ESP_LOGI(TAG, "LED strip light driver initialized.");
     return (app_driver_handle_t)indicator;
 #else
+    ESP_LOGI(TAG, "LED_STRIP_LED_COUNT is 0. Light driver for LED strip not initialized.");
     return NULL;
 #endif
 }

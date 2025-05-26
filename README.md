@@ -45,7 +45,7 @@ Applications that do not require BLE post commissioning, can disable it using ap
 source $IDF_PATH/export.sh
 source $ESP_MATTER_PATH/export.sh
 
-idf.py erase_flash -p /dev/ttyACM0
+idf.py erase-flash -p /dev/ttyACM0
 
 pip install esp_matter_mfg_tool
 
