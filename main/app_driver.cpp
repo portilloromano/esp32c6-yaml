@@ -110,6 +110,160 @@ static esp_err_t app_driver_light_set_temperature(led_indicator_handle_t handle,
 #endif
 }
 
+static esp_err_t app_driver_set_default_brightness(uint16_t endpoint_id, led_indicator_handle_t handle)
+{
+    esp_err_t err = ESP_OK;
+    esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+    attribute_t *attribute = attribute::get(endpoint_id, LevelControl::Id, LevelControl::Attributes::CurrentLevel::Id);
+
+    if (!attribute)
+    {
+        ESP_LOGE(TAG, "Failed to get attribute LevelControl::CurrentLevel (ID: 0x%04X)!", (unsigned int)LevelControl::Attributes::CurrentLevel::Id);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Attribute LevelControl::CurrentLevel found.");
+    esp_err_t get_val_err = attribute::get_val(attribute, &val);
+    if (get_val_err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to get_val for CurrentLevel: %s", esp_err_to_name(get_val_err));
+        err |= get_val_err;
+    }
+    else
+    {
+        err |= app_driver_light_set_brightness(handle, &val);
+    }
+    return err;
+}
+
+static esp_err_t app_driver_set_default_color(uint16_t endpoint_id, led_indicator_handle_t handle)
+{
+    esp_err_t err = ESP_OK;
+    esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+    attribute_t *attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::ColorMode::Id);
+
+    if (!attribute)
+    {
+        ESP_LOGE(TAG, "Failed to get attribute ColorControl::ColorMode (ID: 0x%04X) for endpoint %u!", (unsigned int)ColorControl::Attributes::ColorMode::Id, endpoint_id);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Attribute ColorControl::ColorMode for endpoint %u found.", endpoint_id);
+    esp_err_t get_val_err = attribute::get_val(attribute, &val);
+    if (get_val_err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to get_val for ColorMode: %s", esp_err_to_name(get_val_err));
+        err |= get_val_err;
+    }
+    else
+    {
+        if (val.val.u8 == (uint8_t)ColorControl::ColorMode::kColorTemperature)
+        {
+            ESP_LOGI(TAG, "ColorMode is kColorTemperature. Getting ColorTemperatureMireds.");
+            attribute_t *temp_attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::ColorTemperatureMireds::Id);
+            if (!temp_attribute)
+            {
+                ESP_LOGE(TAG, "Failed to get attribute ColorControl::ColorTemperatureMireds (ID: 0x%04X) for endpoint %u!", (unsigned int)ColorControl::Attributes::ColorTemperatureMireds::Id, endpoint_id);
+                err |= ESP_FAIL; // Mark error
+                return err; // Return immediately as this is critical for this path
+            }
+            else
+            {
+                ESP_LOGI(TAG, "Attribute ColorControl::ColorTemperatureMireds for endpoint %u found.", endpoint_id);
+                esp_matter_attr_val_t temp_val = esp_matter_invalid(NULL);
+                get_val_err = attribute::get_val(temp_attribute, &temp_val);
+                if (get_val_err != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "Failed to get_val for ColorTemperatureMireds: %s", esp_err_to_name(get_val_err));
+                    err |= get_val_err;
+                }
+                else
+                {
+                    err |= app_driver_light_set_temperature(handle, &temp_val);
+                }
+            }
+        }
+        else if (val.val.u8 == (uint8_t)ColorControl::ColorMode::kCurrentHueAndCurrentSaturation)
+        {
+            ESP_LOGI(TAG, "ColorMode is kCurrentHueAndCurrentSaturation.");
+            attribute_t *hue_attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::CurrentHue::Id);
+            if (!hue_attribute)
+            {
+                ESP_LOGE(TAG, "Failed to get attribute CurrentHue (ID: 0x%04X) for endpoint %u!", (unsigned int)ColorControl::Attributes::CurrentHue::Id, endpoint_id);
+                err |= ESP_FAIL; // Mark error
+                // Do not return yet, try to get Saturation as well, but err will reflect failure.
+            }
+            else
+            {
+                esp_matter_attr_val_t hue_val = esp_matter_invalid(NULL);
+                get_val_err = attribute::get_val(hue_attribute, &hue_val);
+                if (get_val_err != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "Failed to get_val for CurrentHue: %s", esp_err_to_name(get_val_err));
+                    err |= get_val_err;
+                }
+                else
+                {
+                    err |= app_driver_light_set_hue(handle, &hue_val);
+                }
+            }
+
+            attribute_t *sat_attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::CurrentSaturation::Id);
+            if (!sat_attribute)
+            {
+                ESP_LOGE(TAG, "Failed to get attribute CurrentSaturation (ID: 0x%04X) for endpoint %u!", (unsigned int)ColorControl::Attributes::CurrentSaturation::Id, endpoint_id);
+                err |= ESP_FAIL; // Mark error
+            }
+            else
+            {
+                esp_matter_attr_val_t sat_val = esp_matter_invalid(NULL);
+                get_val_err = attribute::get_val(sat_attribute, &sat_val);
+                if (get_val_err != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "Failed to get_val for CurrentSaturation: %s", esp_err_to_name(get_val_err));
+                    err |= get_val_err;
+                }
+                else
+                {
+                    err |= app_driver_light_set_saturation(handle, &sat_val);
+                }
+            }
+        }
+        else
+        {
+            ESP_LOGW(TAG, "Color mode 0x%02X not fully handled for defaults in this example", val.val.u8);
+            // Consider if this should be an error or not. For now, just warning.
+        }
+    }
+    return err;
+}
+
+static esp_err_t app_driver_set_default_power(uint16_t endpoint_id, led_indicator_handle_t handle)
+{
+    esp_err_t err = ESP_OK;
+    esp_matter_attr_val_t val = esp_matter_invalid(NULL);
+    attribute_t *attribute = attribute::get(endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id);
+
+    if (!attribute)
+    {
+        ESP_LOGE(TAG, "Failed to get attribute OnOff::OnOff (ID: 0x%04X)!", (unsigned int)OnOff::Attributes::OnOff::Id);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Attribute OnOff::OnOff found.");
+    esp_err_t get_val_err = attribute::get_val(attribute, &val);
+    if (get_val_err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to get_val for OnOff: %s", esp_err_to_name(get_val_err));
+        err |= get_val_err;
+    }
+    else
+    {
+        err |= app_driver_light_set_power(handle, &val);
+    }
+    return err;
+}
+
 esp_err_t app_driver_attribute_update(app_driver_handle_t driver_handle, uint16_t endpoint_id, uint32_t cluster_id,
                                       uint32_t attribute_id, esp_matter_attr_val_t *val)
 {
@@ -159,123 +313,26 @@ esp_err_t app_driver_light_set_defaults(uint16_t endpoint_id)
     esp_err_t err = ESP_OK;
     void *priv_data = endpoint::get_priv_data(endpoint_id);
     led_indicator_handle_t handle = (led_indicator_handle_t)priv_data;
-    esp_matter_attr_val_t val = esp_matter_invalid(NULL);
-    attribute_t *attribute = nullptr; // Inicializar a nullptr
 
-    /* Setting brightness */
-    ESP_LOGI(TAG, "Getting attribute: LevelControl::CurrentLevel");
-    attribute = attribute::get(endpoint_id, LevelControl::Id, LevelControl::Attributes::CurrentLevel::Id);
-    if (!attribute)
-    {
-        ESP_LOGE(TAG, "Failed to get attribute LevelControl::CurrentLevel (ID: 0x%04X)!", (unsigned int)LevelControl::Attributes::CurrentLevel::Id);
-        // Considerar devolver ESP_FAIL aquí o manejar el error de alguna forma
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Attribute LevelControl::CurrentLevel found.");
-        err = attribute::get_val(attribute, &val);
-        if (err == ESP_OK)
-        {
-            err |= app_driver_light_set_brightness(handle, &val);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Failed to get_val for CurrentLevel: %s", esp_err_to_name(err));
-        }
+    // Generic NULL check for handle, critical for LED operations.
+    // The LED_STRIP_LED_COUNT check is handled within each app_driver_light_set_* function
+    // or helper functions like app_driver_set_default_brightness.
+    if (!handle && LED_STRIP_LED_COUNT > 0) { // Check if handle is NULL AND LEDs are expected
+        ESP_LOGE(TAG, "app_driver_light_set_defaults: LED strip handle is NULL for endpoint %u. Cannot set defaults for LED operations.", endpoint_id);
+        return ESP_ERR_INVALID_ARG;
+    } else if (!handle && LED_STRIP_LED_COUNT == 0) {
+         ESP_LOGW(TAG, "app_driver_light_set_defaults: LED strip handle is NULL for endpoint %u, but LED_STRIP_LED_COUNT is 0. Proceeding without LED operations.", endpoint_id);
+         // Allow proceeding as no LED operations will be attempted by helpers due to LED_STRIP_LED_COUNT checks.
     }
 
-    /* Setting color */
-    ESP_LOGI(TAG, "Getting attribute: ColorControl::ColorMode");
-    attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::ColorMode::Id);
-    if (!attribute)
-    {
-        ESP_LOGE(TAG, "Failed to get attribute ColorControl::ColorMode (ID: 0x%04X)!", (unsigned int)ColorControl::Attributes::ColorMode::Id);
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Attribute ColorControl::ColorMode found.");
-        err = attribute::get_val(attribute, &val);
-        if (err == ESP_OK)
-        {
-            if (val.val.u8 == (uint8_t)ColorControl::ColorMode::kColorTemperature)
-            {
-                ESP_LOGI(TAG, "ColorMode is kColorTemperature. Getting ColorTemperatureMireds.");
-                attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::ColorTemperatureMireds::Id);
-                if (!attribute)
-                {
-                    ESP_LOGE(TAG, "Failed to get attribute ColorControl::ColorTemperatureMireds (ID: 0x%04X)!", (unsigned int)ColorControl::Attributes::ColorTemperatureMireds::Id);
-                }
-                else
-                {
-                    ESP_LOGI(TAG, "Attribute ColorControl::ColorTemperatureMireds found.");
-                    err = attribute::get_val(attribute, &val);
-                    if (err == ESP_OK)
-                    {
-                        err |= app_driver_light_set_temperature(handle, &val);
-                    }
-                    else
-                    {
-                        ESP_LOGE(TAG, "Failed to get_val for ColorTemperatureMireds: %s", esp_err_to_name(err));
-                    }
-                }
-            }
-            else if (val.val.u8 == (uint8_t)ColorControl::ColorMode::kCurrentHueAndCurrentSaturation)
-            {
-                ESP_LOGI(TAG, "ColorMode is kCurrentHueAndCurrentSaturation.");
-                // Añade verificaciones similares para CurrentHue y CurrentSaturation aquí
-                attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::CurrentHue::Id);
-                if (!attribute)
-                {
-                    ESP_LOGE(TAG, "Attribute CurrentHue is NULL!");
-                }
-                else
-                { /*...*/
-                }
 
-                attribute = attribute::get(endpoint_id, ColorControl::Id, ColorControl::Attributes::CurrentSaturation::Id);
-                if (!attribute)
-                {
-                    ESP_LOGE(TAG, "Attribute CurrentSaturation is NULL!");
-                }
-                else
-                { /*...*/
-                }
-            }
-            else
-            {
-                ESP_LOGE(TAG, "Color mode 0x%02X not fully handled for defaults in this example", val.val.u8);
-            }
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Failed to get_val for ColorMode: %s", esp_err_to_name(err));
-        }
-    }
-
-    /* Setting power */
-    ESP_LOGI(TAG, "Getting attribute: OnOff::OnOff");
-    attribute = attribute::get(endpoint_id, OnOff::Id, OnOff::Attributes::OnOff::Id);
-    if (!attribute)
-    {
-        ESP_LOGE(TAG, "Failed to get attribute OnOff::OnOff (ID: 0x%04X)!", (unsigned int)OnOff::Attributes::OnOff::Id);
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Attribute OnOff::OnOff found.");
-        err = attribute::get_val(attribute, &val);
-        if (err == ESP_OK)
-        {
-            err |= app_driver_light_set_power(handle, &val);
-        }
-        else
-        {
-            ESP_LOGE(TAG, "Failed to get_val for OnOff: %s", esp_err_to_name(err));
-        }
-    }
+    err |= app_driver_set_default_brightness(endpoint_id, handle);
+    err |= app_driver_set_default_color(endpoint_id, handle);
+    err |= app_driver_set_default_power(endpoint_id, handle);
 
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Error occurred while setting driver defaults.");
+        ESP_LOGE(TAG, "Error occurred while setting driver defaults for endpoint %u.", endpoint_id);
     }
     else
     {
@@ -585,7 +642,7 @@ app_driver_handle_t app_driver_button_init()
 
     // Configurar los argumentos para el long press
     button_event_args_t long_press_args;
-    long_press_args.long_press.press_time = 5000; // 5000 ms
+    long_press_args.long_press.press_time = APP_BUTTON_LONG_PRESS_TIME_MS;
 
     // Registrar callback para el evento BUTTON_LONG_PRESS_UP
     ret = iot_button_register_cb(btn_handle, BUTTON_LONG_PRESS_UP, &long_press_args, button_long_press_cb, NULL);

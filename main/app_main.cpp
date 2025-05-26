@@ -149,7 +149,7 @@ extern "C" void app_main(void)
     // 10. Main loop
     while (true)
     {
-        vTaskDelay(pdMS_TO_TICKS(10000));
+        vTaskDelay(pdMS_TO_TICKS(MAIN_LOOP_DELAY_MS));
     }
 }
 
