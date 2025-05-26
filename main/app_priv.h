@@ -42,6 +42,9 @@
 #define IDENTIFY_BLINK_ON_TIME_MS 250
 #define IDENTIFY_BLINK_OFF_TIME_MS 250
 
+// Main loop delay
+#define MAIN_LOOP_DELAY_MS 10000
+
 // Configuración OpenThread
 #define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG() { \
     .radio_mode = RADIO_MODE_NATIVE,            \
