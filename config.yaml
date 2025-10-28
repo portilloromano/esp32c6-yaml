@@ -1,0 +1,27 @@
+# Example configuration for ESP32 Matter device endpoints and clusters.
+# This file allows for dynamic configuration of the device's functionality,
+# similar to ESPHome.
+#
+# Supported device_types:
+#   - light
+#
+# Supported cluster names:
+#   - on_off
+#   - level_control
+#   - color_control
+#
+# Attribute types and defaults will be handled by the application code
+# based on the cluster name.
+
+endpoints:
+  - id: 1
+    device_type: "light"
+    clusters:
+      - name: "on_off"
+      - name: "level_control"
+
+  # You can add more endpoints here. For example, a second light:
+  # - id: 2
+  #   device_type: "light"
+  #   clusters:
+  #     - name: "on_off"

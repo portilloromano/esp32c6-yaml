@@ -10,5 +10,6 @@
     "IDF_CCACHE_ENABLE": "1",
     "IDF_TARGET": "esp32c6"
   },
-  "idf.flashType": "UART"
+  "idf.flashType": "UART",
+  "idf.pythonInstallPath": "/usr/bin/python3"
 }

@@ -1,4 +1,5 @@
 #include <app_priv.h>
+#include "common_macros.h"
 
 #include <stdio.h>
 #include <led_indicator.h>
@@ -357,8 +358,6 @@ void app_driver_perform_identification(app_driver_handle_t driver_handle, esp_ma
     if (type == esp_matter::identification::START)
     {
         ESP_LOGI(TAG, "Identify START received.");
-        // Solo iniciar un nuevo parpadeo de identificación si no se está identificando ya
-        // O si LED_STRIP_LED_COUNT es 0 (en cuyo caso solo logueamos y manejamos el estado)
         if (s_is_identifying && LED_STRIP_LED_COUNT > 0)
         {
             ESP_LOGI(TAG, "Identify: Already identifying. Ignoring new START.");
@@ -387,9 +386,6 @@ void app_driver_perform_identification(app_driver_handle_t driver_handle, esp_ma
         }
         else
         {
-            // Si se recibe un effect_id diferente a kBlink, la especificación Matter
-            // dice que el dispositivo PUEDE ignorarlo o realizar una acción por defecto.
-            // Aquí, optamos por realizar el parpadeo por defecto también para otros efectos no implementados.
             ESP_LOGW(TAG, "Identify: Effect ID 0x%02x is not kBlink. Performing default blink (type %d) as fallback.", effect_id, BLINK_TYPE_IDENTIFY);
             esp_err_t err_start = led_indicator_start(handle, BLINK_TYPE_IDENTIFY);
             if (err_start != ESP_OK)
@@ -406,7 +402,7 @@ void app_driver_perform_identification(app_driver_handle_t driver_handle, esp_ma
         ESP_LOGI(TAG, "Identify STOP received.");
 #if LED_STRIP_LED_COUNT > 0
         if (s_is_identifying)
-        { // Solo actuar si estábamos identificando
+        {
             ESP_LOGI(TAG, "Stopping Identify blink (type %d).", BLINK_TYPE_IDENTIFY);
             esp_err_t err_stop = led_indicator_stop(handle, BLINK_TYPE_IDENTIFY);
             if (err_stop != ESP_OK)

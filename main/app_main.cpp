@@ -1,5 +1,7 @@
 #include "app_priv.h"
 #include "common_macros.h"
+#include "generated_config.h"
+#include <string.h>
 
 #include <esp_err.h>
 #include <esp_log.h>
@@ -16,32 +18,32 @@
 #include <platform/ESP32/OpenthreadLauncher.h>
 #include <platform/CHIPDeviceLayer.h>
 
-// Using namespaces for convenience
+// Namespaces para simplificar el código
 using namespace chip::app::Clusters;
 using namespace esp_matter;
 using namespace esp_matter::endpoint;
 using namespace esp_matter::attribute;
 
-// Logging Tags
+// Etiqueta de logs
 static const char *TAG = "APP_MAIN";
 
-// Global endpoint ID for the light
+// ID global del endpoint de la luz
 uint16_t light_endpoint_id = chip::kInvalidEndpointId;
 
-// --- Forward Declarations ---
+// --- Declaraciones adelantadas de callbacks ---
 esp_err_t app_attribute_update_cb(callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
                                   uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data);
 esp_err_t app_identification_cb(identification::callback_type_t type, uint16_t endpoint_id, uint8_t effect_id,
                                 uint8_t effect_variant, void *priv_data);
 void app_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, intptr_t arg);
 
-// --- Main Application ---
+// --- Función principal ---
 extern "C" void app_main(void)
 {
     ESP_LOGI(TAG, "Starting Matter Light Application (Factory Provider Mode)");
     esp_err_t err_esp = ESP_OK;
 
-    // 1. Initialize NVS
+    // 1. Inicializar NVS (almacenamiento no volátil)
     err_esp = nvs_flash_init();
     if (err_esp == ESP_ERR_NVS_NO_FREE_PAGES || err_esp == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
@@ -52,61 +54,61 @@ extern "C" void app_main(void)
     ABORT_APP_ON_FAILURE(err_esp == ESP_OK, ESP_LOGE(TAG, "Failed to initialize NVS: %s", esp_err_to_name(err_esp)));
     ESP_LOGI(TAG, "NVS Initialized.");
 
-    // 2. Initialize hardware drivers
+    // 2. Inicializar drivers de hardware (LED y botón)
     ESP_LOGI(TAG, "Initializing application drivers...");
     app_driver_handle_t light_handle = app_driver_light_init();
     app_driver_button_init();
     ESP_LOGI(TAG, "Application drivers initialized.");
 
-    // 3. Create Matter Node
+    // 3. Crear el nodo Matter
     ESP_LOGI(TAG, "Creating Matter node...");
     node::config_t node_config;
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb, light_handle);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
     ESP_LOGI(TAG, "Matter node created.");
 
-    // 4. Create Light Endpoint
-    ESP_LOGI(TAG, "Creating Light endpoint...");
-    esp_matter::endpoint::extended_color_light::config_t light_cfg;
-    light_cfg.on_off.on_off = DEFAULT_POWER;
-    light_cfg.level_control.current_level = DEFAULT_BRIGHTNESS;
+    // 4. Create endpoints and clusters from generated config
+    ESP_LOGI(TAG, "Creating endpoints from generated configuration...");
+    for (int i = 0; i < generated_config::num_endpoints; ++i) {
+        const auto& ep_config = generated_config::endpoints[i];
+        ESP_LOGI(TAG, "Creating endpoint id: %d, type: %s", ep_config.id, ep_config.device_type);
 
-    // Configuración del Cluster ColorControl
-    light_cfg.color_control.color_mode = static_cast<uint8_t>(chip::app::Clusters::ColorControl::ColorMode::kColorTemperature);
-    light_cfg.color_control.enhanced_color_mode = static_cast<uint8_t>(chip::app::Clusters::ColorControl::ColorMode::kColorTemperature);
+        endpoint_t *endpoint = nullptr;
+        if (strcmp(ep_config.device_type, "light") == 0) {
+            esp_matter::endpoint::light::config_t light_cfg;
+            endpoint = esp_matter::endpoint::light::create(node, &light_cfg, ENDPOINT_FLAG_NONE, light_handle);
+            ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create Light endpoint"));
 
-    // Habilitar las features deseadas usando el mapa de bits 'feature_flags'
-    light_cfg.color_control.feature_flags =
-        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kHueAndSaturation) |
-        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kEnhancedHue) |
-        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kColorLoop) |
-        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kXy) |
-        static_cast<uint32_t>(chip::app::Clusters::ColorControl::Feature::kColorTemperature);
-
-    light_cfg.color_control.features.color_temperature.color_temp_physical_min_mireds = DEFAULT_COLOR_TEMP_PHYSICAL_MIN_MIREDS;
-    light_cfg.color_control.features.color_temperature.color_temp_physical_max_mireds = DEFAULT_COLOR_TEMP_PHYSICAL_MAX_MIREDS;
-
-    endpoint_t *endpoint = esp_matter::endpoint::extended_color_light::create(node, &light_cfg, ENDPOINT_FLAG_NONE, light_handle);
-    ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create Light endpoint"));
-    light_endpoint_id = endpoint::get_id(endpoint);
-    ABORT_APP_ON_FAILURE(light_endpoint_id != chip::kInvalidEndpointId, ESP_LOGE(TAG, "Error getting created endpoint ID"));
-    ESP_LOGI(TAG, "Light endpoint created with ID: %u", light_endpoint_id);
-
-    // 5. Set deferred persistence
-    if (auto color_cluster = cluster::get(endpoint, ColorControl::Id))
-    {
-        constexpr chip::AttributeId color_attrs[] = {ColorControl::Attributes::CurrentX::Id, ColorControl::Attributes::CurrentY::Id, ColorControl::Attributes::ColorTemperatureMireds::Id};
-        for (auto id : color_attrs)
-        {
-            if (auto attr = attribute::get(color_cluster, id))
-            {
-                attribute::set_deferred_persistence(attr);
+            for (int j = 0; j < ep_config.num_clusters; ++j) {
+                const auto& cluster_config = ep_config.clusters[j];
+                ESP_LOGI(TAG, "Creating cluster: %s", cluster_config.name);
+                if (strcmp(cluster_config.name, "on_off") == 0) {
+                    on_off::config_t on_off_cfg;
+                    on_off_cfg.on_off = DEFAULT_POWER;
+                    cluster::on_off::create(endpoint, &on_off_cfg, CLUSTER_FLAG_SERVER);
+                } else if (strcmp(cluster_config.name, "level_control") == 0) {
+                    level_control::config_t level_control_cfg;
+                    level_control_cfg.current_level = DEFAULT_BRIGHTNESS;
+                    cluster::level_control::create(endpoint, &level_control_cfg, CLUSTER_FLAG_SERVER);
+                } else if (strcmp(cluster_config.name, "color_control") == 0) {
+                    color_control::config_t color_control_cfg;
+                    color_control_cfg.color_mode = static_cast<uint8_t>(ColorControl::ColorMode::kColorTemperature);
+                    color_control_cfg.enhanced_color_mode = static_cast<uint8_t>(ColorControl::ColorMode::kColorTemperature);
+                    cluster::color_control::create(endpoint, &color_control_cfg, CLUSTER_FLAG_SERVER);
+                }
             }
         }
-        ESP_LOGI(TAG, "Deferred persistence configured for ColorControl attributes.");
+            if (endpoint) {
+                uint16_t endpoint_id = endpoint::get_id(endpoint);
+                ESP_LOGI(TAG, "Endpoint created with ID: %u", endpoint_id);
+                app_driver_light_set_defaults(endpoint_id);
+            }
+        }
     }
 
-    // 6. Configure OpenThread
+
+
+    // 6. Configurar OpenThread
     ESP_LOGI(TAG, "Configuring OpenThread...");
     esp_openthread_platform_config_t config = {
         .radio_config = ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG(),
@@ -116,7 +118,7 @@ extern "C" void app_main(void)
     set_openthread_platform_config(&config);
     ESP_LOGI(TAG, "OpenThread configured.");
 
-    // 7. Start the Matter Stack
+    // 7. Iniciar la pila Matter
     ESP_LOGI(TAG, "Starting Matter stack...");
     err_esp = esp_matter::start(app_event_cb);
     ABORT_APP_ON_FAILURE(err_esp == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter stack: %s", esp_err_to_name(err_esp)));
@@ -126,35 +128,25 @@ extern "C" void app_main(void)
              heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
              heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
-    // 8. Set initial driver state
-    ESP_LOGI(TAG, "Setting driver defaults...");
-    if (light_endpoint_id != chip::kInvalidEndpointId)
-    {
-        app_driver_light_set_defaults(light_endpoint_id);
-        ESP_LOGI(TAG, "Driver defaults set for endpoint %u.", light_endpoint_id);
-    }
-    else
-    {
-        ESP_LOGE(TAG, "Cannot set driver defaults, invalid endpoint ID!");
-    }
 
-    // 9. Log device configuration ONLY
+
+    // 9. Log de la configuración del dispositivo
     ESP_LOGI(TAG, "Device ready. Logging configuration...");
     chip::DeviceLayer::ConfigurationMgr().LogDeviceConfig();
-    // generate_and_print_qr_code(); // ELIMINADO
 
     ESP_LOGI(TAG, "Setup complete. Entering main loop.");
     ESP_LOGI(TAG, "*** Commissioning codes must be obtained from the mfg_tool output (.csv file) ***");
 
-    // 10. Main loop
+    // 10. Bucle principal (tarea en FreeRTOS)
     while (true)
     {
         vTaskDelay(pdMS_TO_TICKS(MAIN_LOOP_DELAY_MS));
     }
 }
 
-// --- Callback Implementations ---
+// --- Implementaciones de Callbacks ---
 
+// Callback de actualización de atributos (ej. cuando un cliente cambia brillo o color)
 esp_err_t app_attribute_update_cb(callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
                                   uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data)
 {
@@ -177,14 +169,13 @@ esp_err_t app_attribute_update_cb(callback_type_t type, uint16_t endpoint_id, ui
     return err;
 }
 
+// Callback de identificación (usado para parpadeos o efectos cuando el dispositivo es identificado en la red)
 esp_err_t app_identification_cb(identification::callback_type_t type, uint16_t endpoint_id, uint8_t effect_id,
                                 uint8_t effect_variant, void *priv_data)
 {
     ESP_LOGI(TAG, "Identification callback received: EP=%u, Type=%d, EffectId=0x%x, Variant=0x%x",
              endpoint_id, type, effect_id, effect_variant);
 
-    // Solo actuar sobre el endpoint de la luz principal si es necesario diferenciar
-    // if (endpoint_id == light_endpoint_id) { // O si es un endpoint raíz y aplica a todos
     app_driver_handle_t driver_handle = (app_driver_handle_t)priv_data;
     if (driver_handle)
     {
@@ -194,12 +185,11 @@ esp_err_t app_identification_cb(identification::callback_type_t type, uint16_t e
     {
         ESP_LOGE(TAG, "Identify CB: Driver handle (priv_data) is NULL for endpoint %u", endpoint_id);
     }
-    // } else {
-    //    ESP_LOGI(TAG, "Identification request for unhandled endpoint_id: %u", endpoint_id);
-    // }
+
     return ESP_OK;
 }
 
+// Callback de eventos de la pila Matter (ej. commissioning, fallos, red operativa, etc.)
 void app_event_cb(const chip::DeviceLayer::ChipDeviceEvent *event, intptr_t arg)
 {
     if (event)
