@@ -18,7 +18,26 @@ endpoints:
     # - dimmable_light
     # - extended_color_light
     device_type: "extended_color_light"
+    clusters:
+      identify: {}
+      groups: {}
+      scenes_management:
+        scene_table_size: 16
+      on_off:
+        state: true
+        features: [lighting]
+      level_control:
+        current_level: 128
+        features: [on_off, lighting]
+      color_control:
+        color_mode: "kColorTemperature"
+        enhanced_color_mode: "kColorTemperature"
+        color_temperature_mireds: 350
+        features: [color_temperature, xy]
 
-  # Example of a second endpoint, maybe a simple on/off light
+  # Example of a second endpoint, a simple on/off light
   # - id: 2
   #   device_type: "on_off_light"
+  #   clusters:
+  #     on_off:
+  #       state: false

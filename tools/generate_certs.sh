@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # --- Configuración ---
-BASE_DIR=$(pwd)
-CERT_DIR="${BASE_DIR}/certs"
-SCRIPT_DIR="${BASE_DIR}/tools"
-OUTPUT_BASE_DIR="${BASE_DIR}/output_fabrica"
+SCRIPT_LOCATION_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PROJECT_ROOT_DIR="$(dirname "$SCRIPT_LOCATION_DIR")"
+CERT_DIR="${PROJECT_ROOT_DIR}/certs"
+OUTPUT_BASE_DIR="${PROJECT_ROOT_DIR}/output_fabrica"
 DEVICE_PORT="/dev/ttyACM0"
 PAI_CERT_PEM="${CERT_DIR}/PAI.crt"
 PAI_KEY_PEM="${CERT_DIR}/PAI.key" 
@@ -13,7 +13,7 @@ PYTHON_INTERPRETER="/opt/espressif/tools/python_env/idf5.4_py3.12_env/bin/python
 ESPTOOL_CMD="esptool.py"
 CHIP_CERT_CMD="chip-cert"
 MFG_TOOL_CMD="esp-matter-mfg-tool"
-PYTHON_SCRIPT_NAME="generate_creds_by_mac.py"
+PYTHON_SCRIPT_PATH="${SCRIPT_LOCATION_DIR}/generate_creds_by_mac.py"
 
 FACTORY_PARTITION_ADDR="0xFFA000"
 CHIP_TARGET="esp32c6"
@@ -23,7 +23,8 @@ VENDOR_NAME="Home"
 PRODUCT_ID="0x8000"
 PRODUCT_NAME="Color Temperature Light"
 HARDWARE_VERSION="1"
-MANUFACTURING_DATE=$(date +%Y-%m-%d)
+MANUFACTURING_DATE_RAW=$(date +%Y%m%d)
+MANUFACTURING_DATE_DISPLAY="${MANUFACTURING_DATE_RAW:0:4}-${MANUFACTURING_DATE_RAW:4:2}-${MANUFACTURING_DATE_RAW:6:2}"
 DEVICE_TYPE_ID="0x010D"
 
 # --- Funciones ---
@@ -41,12 +42,11 @@ echo "--- Verificando herramientas y archivos base ---"
 check_command "$ESPTOOL_CMD" || exit 1
 check_command "$CHIP_CERT_CMD" || exit 1
 check_command "$MFG_TOOL_CMD" || exit 1
-check_file "${SCRIPT_DIR}/${PYTHON_SCRIPT_NAME}" || exit 1
+check_file "$PYTHON_SCRIPT_PATH" || exit 1
 check_file "$PAI_CERT_PEM" || exit 1
 check_file "$PAI_KEY_PEM" || exit 1 
 if [ ! -x "$PYTHON_INTERPRETER" ]; then echo "Error: Intérprete Python no encontrado: $PYTHON_INTERPRETER"; exit 1; fi
 echo "Verificaciones iniciales OK."
-
 
 # --- Generar CD si no existe ---
 if [ ! -f "$CD_FILE" ]; then
@@ -67,11 +67,11 @@ check_file "$CD_FILE" || exit 1
 
 # --- Obtener credenciales únicas del dispositivo ---
 echo "--- Obteniendo credenciales únicas del dispositivo en $DEVICE_PORT ---"
-DEVICE_MAC=$($PYTHON_INTERPRETER "${SCRIPT_DIR}/${PYTHON_SCRIPT_NAME}" -p $DEVICE_PORT --get mac)
+DEVICE_MAC=$($PYTHON_INTERPRETER "$PYTHON_SCRIPT_PATH" -p $DEVICE_PORT --get mac)
 if [ $? -ne 0 ] || [ -z "$DEVICE_MAC" ]; then echo "Error obteniendo MAC."; exit 1; fi
-DEVICE_PASSCODE=$($PYTHON_INTERPRETER "${SCRIPT_DIR}/${PYTHON_SCRIPT_NAME}" -p $DEVICE_PORT --get passcode)
+DEVICE_PASSCODE=$($PYTHON_INTERPRETER "$PYTHON_SCRIPT_PATH" -p $DEVICE_PORT --get passcode)
 if [ $? -ne 0 ] || [ -z "$DEVICE_PASSCODE" ]; then echo "Error obteniendo Passcode."; exit 1; fi
-DEVICE_DISCRIMINATOR=$($PYTHON_INTERPRETER "${SCRIPT_DIR}/${PYTHON_SCRIPT_NAME}" -p $DEVICE_PORT --get discriminator)
+DEVICE_DISCRIMINATOR=$($PYTHON_INTERPRETER "$PYTHON_SCRIPT_PATH" -p $DEVICE_PORT --get discriminator)
 if [ $? -ne 0 ] || [ -z "$DEVICE_DISCRIMINATOR" ]; then echo "Error obteniendo Discriminator."; exit 1; fi
 
 SERIAL_SUFFIX=$(echo "$DEVICE_MAC" | tr -d ':')
@@ -82,6 +82,7 @@ echo "Dispositivo MAC: $DEVICE_MAC"
 echo "Serial #:        $DEVICE_SERIAL"
 echo "Passcode:        $DEVICE_PASSCODE"
 echo "Discriminator:   $DEVICE_DISCRIMINATOR"
+echo "Fecha Fabr.:     $MANUFACTURING_DATE_DISPLAY (CLI: $MANUFACTURING_DATE_RAW)"
 echo "Directorio Salida: $OUTPUT_DIR"
 echo "-------------------------------------------"
 mkdir -p "$OUTPUT_DIR"
@@ -100,13 +101,13 @@ $MFG_TOOL_CMD \
     --vendor-name "$VENDOR_NAME" \
     --product-name "$PRODUCT_NAME" \
     --hw-ver "$HARDWARE_VERSION" \
-    --mfg-date "$MANUFACTURING_DATE" \
+    --mfg-date "$MANUFACTURING_DATE_RAW" \
     -cd "$CD_FILE" \
     --pai \
     -c "$PAI_CERT_PEM" \
     -k "$PAI_KEY_PEM" \
     --cn-prefix "Matter Test DAC" \
-    --lifetime 7305 \
+    --lifetime 3650 \
     --outdir "$OUTPUT_DIR" \
     --target "$CHIP_TARGET"
 
