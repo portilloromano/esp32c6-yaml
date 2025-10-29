@@ -1,27 +1,24 @@
-# Example configuration for ESP32 Matter device endpoints and clusters.
-# This file allows for dynamic configuration of the device's functionality,
-# similar to ESPHome.
-#
-# Supported device_types:
-#   - light
-#
-# Supported cluster names:
-#   - on_off
-#   - level_control
-#   - color_control
-#
-# Attribute types and defaults will be handled by the application code
-# based on the cluster name.
+# config.yaml
 
+device:
+  # The main device type for the node.
+  # This will determine the primary device type attribute for the node itself.
+  # Supported types: light, outlet, switch
+  type: light
+  # Device name for identification purposes.
+  name: "Matter C6 Light"
+
+# List of endpoints on this device.
 endpoints:
   - id: 1
-    device_type: "light"
-    clusters:
-      - name: "on_off"
-      - name: "level_control"
+    # The device type for this specific endpoint.
+    # This determines which clusters are created by the application code.
+    # Supported types:
+    # - on_off_light
+    # - dimmable_light
+    # - extended_color_light
+    device_type: "extended_color_light"
 
-  # You can add more endpoints here. For example, a second light:
+  # Example of a second endpoint, maybe a simple on/off light
   # - id: 2
-  #   device_type: "light"
-  #   clusters:
-  #     - name: "on_off"
+  #   device_type: "on_off_light"

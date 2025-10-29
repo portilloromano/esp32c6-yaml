@@ -3,7 +3,7 @@
 # --- Configuración ---
 BASE_DIR=$(pwd)
 CERT_DIR="${BASE_DIR}/certs"
-SCRIPT_DIR="${BASE_DIR}"
+SCRIPT_DIR="${BASE_DIR}/tools"
 OUTPUT_BASE_DIR="${BASE_DIR}/output_fabrica"
 DEVICE_PORT="/dev/ttyACM0"
 PAI_CERT_PEM="${CERT_DIR}/PAI.crt"

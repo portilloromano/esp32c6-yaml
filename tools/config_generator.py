@@ -11,57 +11,31 @@ def main():
     with open(args.config_file, 'r') as f:
         config = yaml.safe_load(f)
 
-    header_content = """
-#pragma once
-
-#include <stdint.h>
-
-// This file is generated automatically by config_generator.py. Do not edit.
-
-namespace generated_config {
-
-struct cluster_config {
-    const char *name;
-};
-
-struct endpoint_config {
-    uint16_t id;
-    const char *device_type;
-    int num_clusters;
-    const cluster_config *clusters;
-};
-
-"""
-
-    endpoint_structs = []
-    cluster_arrays = []
-
-    for i, endpoint in enumerate(config.get('endpoints', [])):
-        cluster_array_name = f"clusters_ep_{endpoint['id']}"
-        clusters = endpoint.get('clusters', [])
-        
-        cluster_defs = []
-        for cluster in clusters:
-            cluster_defs.append(f'        {{.name = "{cluster["name"]}"}}')
-
-        cluster_arrays.append(f"const cluster_config {cluster_array_name}[] = {{\n" + ",\n".join(cluster_defs) + "\n};")
-
-        endpoint_structs.append(
-            f"    {{\n" \
-            f"        .id = {endpoint['id']},\n" \
-            f"        .device_type = \"{endpoint['device_type']}\",\n" \
-            f"        .num_clusters = {len(clusters)},\n" \
-            f"        .clusters = {cluster_array_name}\n" \
-            f"    }}"
-        )
-
-    header_content += "\n".join(cluster_arrays)
-    header_content += "\n\nconst endpoint_config endpoints[] = {\n" + ",\n".join(endpoint_structs) + "\n};\n"
-    header_content += "\nconst uint8_t num_endpoints = sizeof(endpoints) / sizeof(endpoint_config);\n"
-    header_content += "\n} // namespace generated_config\n"
+    device_info = config.get('device', {})
+    device_type = device_info.get('type', 'light')
+    device_name = device_info.get('name', 'ESP32 Matter Device')
 
     with open(args.output_header, 'w') as f:
-        f.write(header_content)
+        f.write("#pragma once\n\n")
+        f.write("#include <stdint.h>\n\n")
+        f.write("// This file is generated automatically by config_generator.py. Do not edit.\n\n")
+        f.write("namespace generated_config {\n\n")
+        f.write(f'const char *device_type = "{device_type}";\n')
+        f.write(f'const char *device_name = "{device_name}";\n\n')
+        f.write("struct endpoint_config {\n    uint16_t id;\n    const char *device_type;\n};\n\n")
+        
+        f.write("const endpoint_config endpoints[] = {\n")
+        
+        endpoints = config.get('endpoints', [])
+        for i, endpoint in enumerate(endpoints):
+            f.write(f'    {{ .id = {endpoint["id"]}, .device_type = "{endpoint["device_type"]}" }}')
+            if i < len(endpoints) - 1:
+                f.write(",")
+            f.write("\n")
+
+        f.write("};\n\n")
+        f.write("const uint8_t num_endpoints = sizeof(endpoints) / sizeof(endpoint_config);\n\n")
+        f.write("} // namespace generated_config\n")
 
     print(f"Generated {args.output_header} from {args.config_file}")
 
