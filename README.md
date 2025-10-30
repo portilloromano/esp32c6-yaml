@@ -54,16 +54,12 @@ python generate_creds_auto_mac.py --port /dev/ttyACM0 --get passcode
 python generate_creds_auto_mac.py --port /dev/ttyACM0 --get discriminator
 
 
-
-
 docker ps
 
-docker cp ~/.ssh/id_personal 4c99fb1ef33b:/root/.ssh/id_personal
-docker cp ~/.ssh/id_personal.pub 4c99fb1ef33b:/root/.ssh/id_personal.pub
+docker cp ~/.ssh/id_personal <id_contenedor>:/root/.ssh/id_personal
 
 Dentro del contenedor
 
 chmod 700 /root/.ssh
 chmod 600 /root/.ssh/id_personal
-chmod 644 /root/.ssh/id_personal.pub
 bash dev/setup-ssh.sh

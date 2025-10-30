@@ -23,7 +23,6 @@
 
 #include <cctype>
 #include <cstring>
-#include <app/data-model/Nullable.h>
 
 // Namespaces to simplify code
 using namespace chip::app::Clusters;
@@ -159,21 +158,18 @@ void apply_common_light_config(ConfigT &cfg, const generated_config::endpoint_co
 void apply_level_control_config(esp_matter::endpoint::dimmable_light::config_t &cfg,
                                 const generated_config::level_control_cluster_config &level_cfg)
 {
-    using chip::app::DataModel::MakeNullable;
-    using chip::app::DataModel::NullNullable;
-
     if (!level_cfg.enabled) {
-        cfg.level_control.current_level = NullNullable;
-        cfg.level_control.on_level = NullNullable;
+        cfg.level_control.current_level = nullptr;
+        cfg.level_control.on_level = nullptr;
         return;
     }
 
-    cfg.level_control.current_level = MakeNullable(level_cfg.current_level);
+    cfg.level_control.current_level = level_cfg.current_level;
     cfg.level_control.options = level_cfg.options;
     if (level_cfg.has_on_level) {
-        cfg.level_control.on_level = MakeNullable(level_cfg.on_level);
+        cfg.level_control.on_level = level_cfg.on_level;
     } else {
-        cfg.level_control.on_level = NullNullable;
+        cfg.level_control.on_level = nullptr;
     }
 }
 

@@ -43,5 +43,5 @@
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"
   },
-  "postStartCommand": "bash -lc 'apt-get update -y && apt-get install -y openssh-client && VENV=/opt/espressif/tools/python_env/idf5.4_py3.12_env && grep -q \"^export PATH=\\\"$VENV/bin:\\$PATH\\\"$\" ~/.bashrc || echo export PATH=\\\"$VENV/bin:\\$PATH\\\" >> ~/.bashrc && grep -q \"esp-idf/export.sh\" ~/.bashrc || echo source $IDF_PATH/export.sh >> ~/.bashrc && grep -q \"esp-matter/export.sh\" ~/.bashrc || echo source $ESP_MATTER_PATH/export.sh >> ~/.bashrc && if [ -f /workspaces/light_esp32c6_temp/dev/setup-ssh.sh ]; then bash /workspaces/light_esp32c6_temp/dev/setup-ssh.sh; fi'"
+  "postStartCommand": "bash -lc 'VENV=/opt/espressif/tools/python_env/idf5.4_py3.12_env; grep -q \"^export PATH=\\\"$VENV/bin:\\$PATH\\\"$\" ~/.bashrc || echo export PATH=\\\"$VENV/bin:\\$PATH\\\" >> ~/.bashrc; grep -q \"esp-idf/export.sh\" ~/.bashrc || echo source $IDF_PATH/export.sh >> ~/.bashrc; grep -q \"esp-matter/export.sh\" ~/.bashrc || echo source $ESP_MATTER_PATH/export.sh >> ~/.bashrc'"
 }
