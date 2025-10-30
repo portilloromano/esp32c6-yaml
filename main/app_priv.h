@@ -4,7 +4,6 @@
 #include <platform/CHIPDeviceLayer.h> // Para ChipDeviceEvent
 
 // Configuración del LED
-#define LED_GPIO GPIO_NUM_8
 #define LED_STRIP_LED_COUNT 1
 #define LED_MODEL LED_MODEL_WS2812
 #define LED_COLOR_FORMAT LED_STRIP_COLOR_COMPONENT_FMT_GRB
@@ -13,7 +12,6 @@
 #define BUTTON_GPIO GPIO_NUM_9
 #define BUTTON_ACTIVE_LEVEL 0
 #define APP_BUTTON_LONG_PRESS_TIME_MS 5000
-#define APP_BUTTON_SHORT_PRESS_TIME_MS 50
 #define CONSECUTIVE_PRESS_TIMEOUT_MS 2000
 #define IDENTIFY_TRIGGER_COUNT 5
 #define IDENTIFY_TIME_S 10
@@ -45,18 +43,25 @@
 // Main loop delay
 #define MAIN_LOOP_DELAY_MS 10000
 
-// Configuración OpenThread
-#define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG() { \
-    .radio_mode = RADIO_MODE_NATIVE,            \
-}
-#define ESP_OPENTHREAD_DEFAULT_HOST_CONFIG() {         \
-    .host_connection_mode = HOST_CONNECTION_MODE_NONE, \
-}
-#define ESP_OPENTHREAD_DEFAULT_PORT_CONFIG() { \
-    .storage_partition_name = "nvs",           \
-    .netif_queue_size = 10,                    \
-    .task_queue_size = 10,                     \
-}
+// --- Configuración de Red Dinámica basada en config.yaml ---
+// El sistema de compilación (vía 'generate_config') leerá config.yaml y generará
+// el archivo app_config.h con macros como CONFIG_APP_NETWORK_CONNECTIVITY_WIFI
+// o CONFIG_APP_NETWORK_CONNECTIVITY_THREAD.
+
+#if CONFIG_APP_NETWORK_CONNECTIVITY_THREAD // Esta macro viene de app_config.h
+    // Si se elige 'thread', se incluyen las configuraciones por defecto para OpenThread.
+    #define ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG() { \
+        .radio_mode = RADIO_MODE_NATIVE,            \
+    }
+    #define ESP_OPENTHREAD_DEFAULT_HOST_CONFIG() {         \
+        .host_connection_mode = HOST_CONNECTION_MODE_NONE, \
+    }
+    #define ESP_OPENTHREAD_DEFAULT_PORT_CONFIG() { \
+        .storage_partition_name = "nvs",           \
+        .netif_queue_size = 10,                    \
+        .task_queue_size = 10,                     \
+    }
+#endif // CONFIG_APP_NETWORK_CONNECTIVITY_THREAD
 
 typedef void *app_driver_handle_t;
 

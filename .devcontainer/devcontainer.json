@@ -34,8 +34,7 @@
     "--device=/dev/ttyACM0"
   ],
   "mounts": [
-    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
-    "source=portillo-ssh,target=/root/.ssh,type=volume"
+    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind"
   ],
   "containerEnv": {
     "IDF_PATH": "/opt/espressif/esp-idf",

@@ -1,4 +1,5 @@
 import argparse
+import os
 import yaml
 
 DEFAULT_CLUSTER_MAP = {
@@ -169,15 +170,55 @@ def parse_endpoint(endpoint: dict) -> dict:
     return result
 
 
-def write_generated_header(output_path: str, device_type: str, device_name: str, endpoints: list[dict]) -> None:
+def write_generated_header(output_path: str, app_config: dict, endpoints: list[dict], app_priv_path: str) -> None:
+    device_type = app_config.get("device_type", "light")
+    device_name = app_config.get("device_name", "ESP32 Matter Device")
+    button_config = app_config.get("button", {})
+    led_strip_config = app_config.get("led_strip", {})
+
+    # Read LED_STRIP_LED_COUNT from app_priv.h if it exists and is not 0 in config.yaml
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("#pragma once\n\n")
         f.write("#include <stdint.h>\n")
         f.write("#include <esp_matter_cluster.h> // For ColorControl enums\n\n")
         f.write("// This file is generated automatically by config_generator.py. Do not edit.\n\n")
+
+        # --- Top-level macros based on config presence ---
+        button_count = 1 if button_config else 0 # Assume 1 button if config exists
+        
+        # Determine LED_STRIP_LED_COUNT from config.yaml, default to 0 if not specified
+        led_strip_count = led_strip_config.get('led_count', 0)
+        
+        # If app_priv.h exists and defines LED_STRIP_LED_COUNT, use that if config.yaml doesn't specify
+        # This is a fallback/compatibility measure.
+        if led_strip_count == 0 and os.path.exists(app_priv_path):
+            with open(app_priv_path, "r", encoding="utf-8") as app_priv_file:
+                if "#define LED_STRIP_LED_COUNT 1" in app_priv_file.read():
+                    led_strip_count = 1
+        f.write(f"#define BUTTON_COUNT {button_count}\n")
+        f.write(f"#define LED_STRIP_LED_COUNT {led_strip_config.get('led_count', 0)}\n\n")
+
+        # --- Button Configuration Namespace ---
+        if button_count > 0:
+            f.write("namespace generated_config::button {\n")
+            f.write(f"inline const int gpio = {button_config.get('gpio', -1)};\n")
+            f.write(f"inline const int active_level = {button_config.get('active_level', 0)};\n")
+            f.write(f"inline const int long_press_time_ms = {button_config.get('long_press_time_ms', 5000)};\n")
+            f.write(f"inline const int short_press_timeout_ms = {button_config.get('short_press_timeout_ms', 2000)};\n")
+            f.write(f"inline const int identify_trigger_count = {button_config.get('identify_trigger_count', 5)};\n")
+            f.write(f"inline const int identify_time_s = {button_config.get('identify_time_s', 10)};\n")
+            f.write("} // namespace generated_config::button\n\n")
+
+        # --- LED Strip Configuration Namespace ---
+        if led_strip_count > 0:
+            f.write("namespace generated_config::led_strip {\n")
+            f.write(f"inline const int rmt_gpio = {led_strip_config.get('rmt_gpio', -1)};\n")
+            f.write(f"inline const char* type = \"{led_strip_config.get('type', 'ws2812')}\";\n")
+            f.write("} // namespace generated_config::led_strip\n\n")
+
         f.write("namespace generated_config {\n\n")
-        f.write(f'const char *device_type = "{device_type}";\n')
-        f.write(f'const char *device_name = "{device_name}";\n\n')
+        f.write(f'inline const char *device_type = "{device_type}";\n')
+        f.write(f'inline const char *device_name = "{device_name}";\n\n')
 
         f.write("struct identify_cluster_config {\n")
         f.write("    bool enabled;\n")
@@ -237,7 +278,7 @@ def write_generated_header(output_path: str, device_type: str, device_name: str,
         f.write("    color_control_cluster_config color_control;\n")
         f.write("};\n\n")
 
-        f.write("const endpoint_config endpoints[] = {\n")
+        f.write("inline const endpoint_config endpoints[] = {\n")
         for idx, ep in enumerate(endpoints):
             f.write("    {\n")
             f.write(f"        .id = {ep['id']},\n")
@@ -302,7 +343,7 @@ def write_generated_header(output_path: str, device_type: str, device_name: str,
             f.write("\n")
 
         f.write("};\n\n")
-        f.write("const uint8_t num_endpoints = sizeof(endpoints) / sizeof(endpoint_config);\n\n")
+        f.write("inline const uint8_t num_endpoints = sizeof(endpoints) / sizeof(endpoint_config);\n\n")
         f.write("} // namespace generated_config\n")
 
 
@@ -315,14 +356,11 @@ def main():
     with open(args.config_file, "r", encoding="utf-8") as cfg_file:
         config = yaml.safe_load(cfg_file)
 
-    device_info = config.get("device", {})
-    device_type = device_info.get("type", "light")
-    device_name = device_info.get("name", "ESP32 Matter Device")
-
-    endpoints_yaml = config.get("endpoints", [])
+    app_info = config.get("app", {})
+    endpoints_yaml = app_info.get("endpoints", [])
     parsed_endpoints = [parse_endpoint(ep) for ep in endpoints_yaml]
 
-    write_generated_header(args.output_header, device_type, device_name, parsed_endpoints)
+    write_generated_header(args.output_header, app_info, parsed_endpoints, os.path.join(os.path.dirname(args.output_header), "app_priv.h"))
     print(f"Generated {args.output_header} from {args.config_file}")
 
 

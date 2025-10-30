@@ -520,6 +520,7 @@ extern "C" void app_main(void)
         ESP_LOGI(TAG, "Endpoint %d created with ID: %u", ep_config.id, endpoint_id);
     }
 
+#if CONFIG_APP_NETWORK_CONNECTIVITY_THREAD
     // 5. Configure OpenThread
     ESP_LOGI(TAG, "Configuring OpenThread...");
     esp_openthread_platform_config_t config = {
@@ -529,7 +530,8 @@ extern "C" void app_main(void)
     };
     set_openthread_platform_config(&config);
     ESP_LOGI(TAG, "OpenThread configured.");
-
+#endif // CONFIG_APP_NETWORK_CONNECTIVITY_THREAD
+    
     // 6. Start the Matter stack
     ESP_LOGI(TAG, "Starting Matter stack...");
     err_esp = esp_matter::start(app_event_cb);

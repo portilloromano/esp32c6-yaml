@@ -1,14 +1,13 @@
 idf_component_register(
     SRC_DIRS "."
     PRIV_INCLUDE_DIRS "." "${CMAKE_BINARY_DIR}"
-    REQUIRES
-        driver
-        led_indicator
-        nvs_flash
-        esp_matter
-        ieee802154
+    # La dependencia de esp_matter ya trae consigo las demás necesarias.
+    # ieee802154 será añadido condicionalmente por el sistema de compilación de esp-matter
+    # si se selecciona 'thread' en config.yaml.
+    REQUIRES esp_matter
 )
 
-# This is the correct way to declare the dependency. 
-# The generate_config target is defined in tools/build.cmake
+# Esta es la forma correcta de declarar la dependencia.
+# El target 'generate_config' está definido en esp-matter y lee nuestro config.yaml
+# para generar un archivo de cabecera y configuraciones de sdkconfig.
 add_dependencies(${COMPONENT_TARGET} generate_config)

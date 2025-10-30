@@ -22,21 +22,6 @@ app:
   network:
     connectivity: wifi
 
- # Configuración del botón físico.
-  button:
-    gpio: 9
-    active_level: 0 # 0 para pull-up, 1 para pull-down
-    long_press_time_ms: 5000 # Tiempo en ms para detectar una pulsación larga (para borrado de NVS)
-    short_press_timeout_ms: 2000 # Tiempo en ms para considerar pulsaciones consecutivas como parte de una secuencia
-    identify_trigger_count: 5 # Número de pulsaciones cortas para activar el modo de identificación
-    identify_time_s: 10 # Duración en segundos del modo de identificación
-
-  # Configuración de la tira de LEDs.
-  led_strip:
-    led_count: 1 # Número de LEDs en la tira. Cambia esto a tu número real.
-    rmt_gpio: 8  # GPIO conectado al pin de datos de la tira de LEDs.
-    type: "ws2812" # Tipo de tira de LEDs.
-
   # Lista de endpoints en este dispositivo.
   endpoints:
     - id: 1
