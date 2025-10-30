@@ -35,7 +35,7 @@
   ],
   "mounts": [
     "source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
-    "source=${localEnv:HOME}/.ssh,target=/mnt/host_ssh,type=bind,consistency=cached"
+    "source=portillo-ssh,target=/root/.ssh,type=volume"
   ],
   "containerEnv": {
     "IDF_PATH": "/opt/espressif/esp-idf",
@@ -43,5 +43,5 @@
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"
   },
-  "postStartCommand": "bash -lc 'apt-get update -y && apt-get install -y openssh-client && mkdir -p /root/.ssh && if [ -f /mnt/host_ssh/id_personal ]; then cp /mnt/host_ssh/id_personal /root/.ssh/; fi && if [ -f /mnt/host_ssh/id_personal.pub ]; then cp /mnt/host_ssh/id_personal.pub /root/.ssh/; fi && printf \"Host github.com-portilloromano\\n  HostName github.com\\n  User git\\n  IdentityFile /root/.ssh/id_personal\\n  IdentitiesOnly yes\\n\" > /root/.ssh/config && chmod 700 /root/.ssh && chmod 600 /root/.ssh/config || true && if [ -f /root/.ssh/id_personal ]; then chmod 600 /root/.ssh/id_personal; fi && if [ -f /root/.ssh/id_personal.pub ]; then chmod 644 /root/.ssh/id_personal.pub; fi && chown -R root:root /root/.ssh && VENV=/opt/espressif/tools/python_env/idf5.4_py3.12_env && grep -q \"^export PATH=\\\"$VENV/bin:\\$PATH\\\"$\" ~/.bashrc || echo export PATH=\\\"$VENV/bin:\\$PATH\\\" >> ~/.bashrc && grep -q \"esp-idf/export.sh\" ~/.bashrc || echo source $IDF_PATH/export.sh >> ~/.bashrc && grep -q \"esp-matter/export.sh\" ~/.bashrc || echo source $ESP_MATTER_PATH/export.sh >> ~/.bashrc'"
+  "postStartCommand": "bash -lc 'apt-get update -y && apt-get install -y openssh-client && VENV=/opt/espressif/tools/python_env/idf5.4_py3.12_env && grep -q \"^export PATH=\\\"$VENV/bin:\\$PATH\\\"$\" ~/.bashrc || echo export PATH=\\\"$VENV/bin:\\$PATH\\\" >> ~/.bashrc && grep -q \"esp-idf/export.sh\" ~/.bashrc || echo source $IDF_PATH/export.sh >> ~/.bashrc && grep -q \"esp-matter/export.sh\" ~/.bashrc || echo source $ESP_MATTER_PATH/export.sh >> ~/.bashrc && if [ -f /workspaces/light_esp32c6_temp/dev/setup-ssh.sh ]; then bash /workspaces/light_esp32c6_temp/dev/setup-ssh.sh; fi'"
 }
