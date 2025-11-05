@@ -35,6 +35,18 @@ get_yaml_value() {
   "$PYTHON_INTERPRETER" -c "import yaml; f = open('$config_file', 'r'); config = yaml.safe_load(f); keys = '$key'.split('.'); val = config; [val := val.get(k) for k in keys]; print(val if val is not None else '')"
 }
 
+normalize_to_hex() {
+  local value="${1,,}"
+  value="${value// /}"
+  if [[ "$value" == 0x* ]]; then
+    echo "${value#0x}"
+  elif [[ "$value" =~ ^[0-9]+$ ]]; then
+    printf '%x' "$((10#$value))"
+  else
+    echo "$value"
+  fi
+}
+
 # --- Verificaciones Iniciales ---
 echo "--- Verificando herramientas y archivos base ---"
 check_command "$ESPTOOL_CMD" || exit 1
@@ -62,6 +74,9 @@ PRODUCT_ID=$(get_yaml_value "fabrication.product_id" "$CONFIG_FILE")
 PRODUCT_NAME=$(get_yaml_value "fabrication.product_name" "$CONFIG_FILE")
 DEVICE_TYPE_ID=$(get_yaml_value "fabrication.device_type_id" "$CONFIG_FILE")
 HARDWARE_VERSION=$(get_yaml_value "fabrication.hardware_version" "$CONFIG_FILE")
+
+VENDOR_ID_HEX=$(normalize_to_hex "$VENDOR_ID")
+PRODUCT_ID_HEX=$(normalize_to_hex "$PRODUCT_ID")
 
 # --- Generar CD si no existe ---
 if [ ! -f "$CD_FILE" ]; then
@@ -111,7 +126,7 @@ mkdir -p "$OUTPUT_DIR"
 # --- Ejecutar esp-matter-mfg-tool (Modo Generación DAC Interna) ---
 echo "--- Ejecutando esp-matter-mfg-tool (Generando DAC internamente) ---"
 # Definir la ruta esperada del binario de salida para flasheo posterior
-MFG_BIN_SEARCH_PATH="${OUTPUT_DIR}/fff1_8000"
+MFG_BIN_SEARCH_PATH="${OUTPUT_DIR}/${VENDOR_ID_HEX}_${PRODUCT_ID_HEX}"
 
 $MFG_TOOL_CMD \
     --passcode "$DEVICE_PASSCODE" \

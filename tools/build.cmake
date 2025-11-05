@@ -18,19 +18,34 @@ add_custom_target(
     DEPENDS ${STAMP_FILE}
 )
 
-# Generate C++ header from YAML config
+# Generate intermediate parsed config and final C++ header
 set(CONFIG_YAML ${CMAKE_SOURCE_DIR}/config.yaml)
 set(GENERATED_HEADER ${CMAKE_BINARY_DIR}/generated_config.h)
+set(PARSED_CONFIG ${CMAKE_BINARY_DIR}/parsed_config.yaml)
+
+add_custom_command(
+    OUTPUT ${PARSED_CONFIG}
+    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/parse_config.py ${CONFIG_YAML} ${PARSED_CONFIG}
+    DEPENDS ${CONFIG_YAML} ${CMAKE_SOURCE_DIR}/tools/parse_config.py pip_requirements
+    COMMENT "Parsing ${CONFIG_YAML}"
+    VERBATIM
+)
 
 add_custom_command(
     OUTPUT ${GENERATED_HEADER}
-    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/config_generator.py ${CONFIG_YAML} ${GENERATED_HEADER}
-    DEPENDS ${CONFIG_YAML} ${CMAKE_SOURCE_DIR}/tools/config_generator.py pip_requirements
-    COMMENT "Generating C++ config from ${CONFIG_YAML}"
+    COMMAND ${PYTHON} ${CMAKE_SOURCE_DIR}/tools/render_config.py ${PARSED_CONFIG} ${GENERATED_HEADER} ${CMAKE_SOURCE_DIR}
+    DEPENDS
+        ${PARSED_CONFIG}
+        ${CMAKE_SOURCE_DIR}/tools/render_config.py
+        ${CMAKE_SOURCE_DIR}/templates/sdkconfig.defaults_wifi
+        ${CMAKE_SOURCE_DIR}/templates/sdkconfig.defaults_thread
+        ${CMAKE_SOURCE_DIR}/templates/sdkconfig.defaults_wifi_thread
+        ${CMAKE_SOURCE_DIR}/templates/partitions.csv_4MB
+        ${CMAKE_SOURCE_DIR}/templates/partitions.csv_8MB
+        ${CMAKE_SOURCE_DIR}/templates/partitions.csv_16MB
+    COMMENT "Rendering C++ config from ${PARSED_CONFIG}"
     VERBATIM
 )
 
 # Add a custom target to depend on the generated file. This ensures it's generated.
-add_custom_target(generate_config ALL DEPENDS ${GENERATED_HEADER})
-
-
+add_custom_target(generate_config ALL DEPENDS ${GENERATED_HEADER} ${PARSED_CONFIG})

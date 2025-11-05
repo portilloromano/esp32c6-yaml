@@ -13,6 +13,7 @@ app:
   device_type: light
   # Nombre del dispositivo para fines de identificación.
   device_name: "Matter C6 Light"
+  flash_size: 8MB
 
   # Configuración de la conectividad de red.
   # El sistema de compilación usará esto para establecer las opciones correctas en sdkconfig.
@@ -22,14 +23,20 @@ app:
   network:
     connectivity: wifi
 
- # Configuración del botón físico.
-  button:
-    gpio: 9
-    active_level: 0 # 0 para pull-up, 1 para pull-down
-    long_press_time_ms: 5000 # Tiempo en ms para detectar una pulsación larga (para borrado de NVS)
-    short_press_timeout_ms: 2000 # Tiempo en ms para considerar pulsaciones consecutivas como parte de una secuencia
-    identify_trigger_count: 5 # Número de pulsaciones cortas para activar el modo de identificación
-    identify_time_s: 10 # Duración en segundos del modo de identificación
+  buttons:
+    - id: local_button
+      gpio: 9
+      active_level: 0 # 0 para pull-up, 1 para pull-down
+      long_press_time_ms: 5000
+      short_press_timeout_ms: 2000
+      identify_trigger_count: 5
+      identify_time_s: 10
+      mode: local
+      action:
+        cluster: on_off
+        command: toggle
+        target_endpoint: 1
+        driver: light
 
   # Configuración de la tira de LEDs.
   led_strip:

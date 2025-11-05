@@ -1,4 +1,4 @@
-# Optimized 16MB Partition Table
+# Optimized 8MB Partition Table
 # Name,   Type, SubType, Offset,   Size,   Flags
 
 esp_secure_cert, 0x3F, ,         0xD000,   0x2000, encrypted
@@ -6,6 +6,6 @@ nvs,             data, nvs,      0x10000,  0xC000,
 nvs_keys,        data, nvs_keys, 0x1C000,  0x1000, encrypted
 otadata,         data, ota,      0x1D000,  0x2000,
 phy_init,        data, phy,      0x1F000,  0x1000,
-ota_0,           app,  ota_0,    0x20000,  0x7E0000,
-ota_1,           app,  ota_1,    0x800000, 0x7E0000,
-fctry,           data, nvs,      0xFE0000, 0x20000
+ota_0,           app,  ota_0,    0x20000,  0x3E0000,
+ota_1,           app,  ota_1,    0x400000, 0x3E0000,
+fctry,           data, nvs,      0x7E0000, 0x20000

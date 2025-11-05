@@ -1,0 +1,38 @@
+app:
+  device_type: switch
+  device_name: "Matter C6 Switch"
+  flash_size: 16MB
+
+  network:
+    connectivity: wifi    # ó thread si lo necesitas; el generador ajusta sdkconfig
+
+  buttons:
+    - id: main
+      gpio: 9
+      active_level: 0
+      long_press_time_ms: 5000
+      short_press_timeout_ms: 2000
+      identify_trigger_count: 5
+      identify_time_s: 10
+      mode: remote
+      action:
+        cluster: on_off
+        command: toggle
+      binding_endpoint: 1
+
+  endpoints:
+    - id: 1
+      device_type: "on_off_switch"   # cambia el tipo del endpoint
+      clusters:
+        identify: {}                 # opcional, pero útil para parpadeo de identificación
+        on_off: {}
+
+fabrication:
+  port: "/dev/ttyACM0"
+  chip_target: "esp32c6"
+  vendor_id: "0xFFF1"
+  vendor_name: "Home"
+  product_id: "0x8001"
+  product_name: "Matter Switch"
+  device_type_id: "0x0103"           # Device Type ID de un On/Off Switch
+  hardware_version: "1"
