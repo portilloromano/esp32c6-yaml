@@ -519,7 +519,24 @@ endpoint_config_resolved resolve_light_config(const generated_config::endpoint_r
                                                           raw.color_control.enabled,
                                                           device_has_default_cluster(raw.device_type, "color_control"));
 
-    generated_config::optional_string default_color_mode{true, "kColorTemperature"};
+    const bool feature_color_temperature = feature_is_enabled(raw.device_type,
+                                                              "color_control",
+                                                              raw.color_control.features,
+                                                              "color_temperature");
+    const bool feature_xy = feature_is_enabled(raw.device_type,
+                                               "color_control",
+                                               raw.color_control.features,
+                                               "xy");
+
+    const char *default_color_mode_value = "kColorTemperature";
+    if (feature_xy) {
+        default_color_mode_value = "kCurrentXAndCurrentY";
+    } else if (!feature_color_temperature &&
+               (raw.color_control.current_hue.has_value || raw.color_control.current_saturation.has_value)) {
+        default_color_mode_value = "kCurrentHueAndCurrentSaturation";
+    }
+
+    generated_config::optional_string default_color_mode{true, default_color_mode_value};
     auto base_mode = resolve_color_mode(raw.color_control.color_mode, default_color_mode);
     auto enhanced_mode = resolve_color_mode(raw.color_control.enhanced_color_mode,
                                             raw.color_control.color_mode.has_value ? raw.color_control.color_mode : default_color_mode);
@@ -535,8 +552,8 @@ endpoint_config_resolved resolve_light_config(const generated_config::endpoint_r
     resolved.color_control.has_color_temperature = raw.color_control.color_temperature_mireds.has_value;
     resolved.color_control.color_temperature_mireds = clamp_uint16(optional_int_value(raw.color_control.color_temperature_mireds, 0));
 
-    resolved.color_control.feature_color_temperature = feature_is_enabled(raw.device_type, "color_control", raw.color_control.features, "color_temperature");
-    resolved.color_control.feature_xy = feature_is_enabled(raw.device_type, "color_control", raw.color_control.features, "xy");
+    resolved.color_control.feature_color_temperature = feature_color_temperature;
+    resolved.color_control.feature_xy = feature_xy;
 
     resolved.color_control.has_remaining_time = raw.color_control.remaining_time.has_value;
     resolved.color_control.remaining_time = clamp_uint16(optional_int_value(raw.color_control.remaining_time, 0));

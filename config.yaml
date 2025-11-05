@@ -75,7 +75,7 @@ fabrication:
   chip_target: "esp32c6"
   vendor_id: "0xFFF1"
   vendor_name: "Home"
-  product_id: "0x8000"
+  product_id: "0x8001"
   product_name: "Color Temperature Light"
   device_type_id: "0x010D"
   hardware_version: "1"
