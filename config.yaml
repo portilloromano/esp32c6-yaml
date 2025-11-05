@@ -13,7 +13,7 @@ app:
   device_type: light
   # Nombre del dispositivo para fines de identificación.
   device_name: "Matter C6 Light"
-  flash_size: 8MB
+  flash_size: 16MB
 
   # Configuración de la conectividad de red.
   # El sistema de compilación usará esto para establecer las opciones correctas en sdkconfig.
