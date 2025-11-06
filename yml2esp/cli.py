@@ -1,5 +1,5 @@
 
-import argparse, sys, os, yaml, json, subprocess
+import argparse, os, yaml, json, subprocess
 from jsonschema import validate, Draft202012Validator
 from jinja2 import Environment, FileSystemLoader
 
@@ -11,6 +11,28 @@ def load_schema(root):
     with open(os.path.join(root, "schema.json"), "r") as f:
         return json.load(f)
 
+def load_manifest(root):
+    return load_yaml(os.path.join(root, "templates", "manifest.yaml"))
+
+def get_nested_value(data, key):
+    current = data
+    for part in key.split("."):
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    return current
+
+def matches_when(when, data):
+    if not when:
+        return True
+    if not isinstance(when, dict):
+        return False
+    for key, expected in when.items():
+        if get_nested_value(data, key) != expected:
+            return False
+    return True
+
 def validate_yaml(data, schema):
     v = Draft202012Validator(schema)
     errs = sorted(v.iter_errors(data), key=lambda e: e.path)
@@ -20,14 +42,34 @@ def validate_yaml(data, schema):
 
 def render(env, data, outdir):
     os.makedirs(outdir, exist_ok=True)
-    src = os.path.join(outdir, "main")
-    os.makedirs(src, exist_ok=True)
-    for t in ["driver_led_strip.c.j2","button.c.j2","app_matter.cpp.j2","main.cpp.j2","CMakeLists.txt.j2","sdkconfig.j2"]:
-        tpl = env.get_template(t)
-        outname = t.replace(".j2","")
-        with open(os.path.join(src, outname), "w") as f:
-            f.write(tpl.render(app=data.get("app",{}), fabrication=data.get("fabrication",{})))
-    return src
+    manifest = load_manifest(os.path.dirname(__file__))
+    if not isinstance(manifest, dict):
+        manifest = {}
+    templates = []
+    if not isinstance(data, dict):
+        data = {}
+    for block in manifest.values():
+        if not isinstance(block, dict):
+            continue
+        if not matches_when(block.get("when"), data):
+            continue
+        for entry in block.get("templates", []):
+            if not isinstance(entry, dict):
+                continue
+            if not matches_when(entry.get("when"), data):
+                continue
+            templates.append((entry["template"], entry["output"]))
+    for template_name, output_path in templates:
+        tpl = env.get_template(template_name)
+        rendered = tpl.render(**data)
+        destination = os.path.join(outdir, output_path)
+        dest_dir = os.path.dirname(destination)
+        if dest_dir:
+            os.makedirs(dest_dir, exist_ok=True)
+        with open(destination, "w") as f:
+            f.write(rendered)
+    main_dir = os.path.join(outdir, "main")
+    return main_dir if os.path.isdir(main_dir) else outdir
 
 def run(cmd, cwd=None):
     p = subprocess.Popen(cmd, cwd=cwd)
