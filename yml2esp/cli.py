@@ -22,7 +22,7 @@ def render(env, data, outdir):
     os.makedirs(outdir, exist_ok=True)
     src = os.path.join(outdir, "main")
     os.makedirs(src, exist_ok=True)
-    for t in ["driver_led_strip.c.j2","button.c.j2","matter_glue.cpp.j2","main.cpp.j2","CMakeLists.txt.j2","sdkconfig.j2"]:
+    for t in ["driver_led_strip.c.j2","button.c.j2","app_matter.cpp.j2","main.cpp.j2","CMakeLists.txt.j2","sdkconfig.j2"]:
         tpl = env.get_template(t)
         outname = t.replace(".j2","")
         with open(os.path.join(src, outname), "w") as f:
