@@ -1,0 +1,40 @@
+#include <esp_matter.h>
+#include <app/server/Server.h>
+
+using namespace chip;
+using namespace esp_matter;
+
+{% set endpoints = app.endpoints if app.endpoints else [{'id': 1, 'device_type': 'extended_color_light', 'clusters': {}}] %}
+{% set first_endpoint = endpoints[0] %}
+static bool s_on = {{ 'true' if first_endpoint.clusters.on_off.state|default(true) else 'false' }};
+static uint8_t s_level = {{ first_endpoint.clusters.level_control.current_level|default(128) }};
+static uint16_t s_ct = {{ first_endpoint.clusters.color_control.color_temperature_mireds|default(350) }};
+
+extern "C" void set_onoff(bool v);
+extern "C" void set_level(uint8_t v);
+extern "C" void set_ct(uint16_t v);
+
+extern "C" bool get_onoff() { return s_on; }
+
+extern "C" void matter_attribute_update_callback(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id, uint32_t attribute_id, uint8_t *value, uint16_t size) {
+    if (cluster_id == chip::app::Clusters::OnOff::Id && attribute_id == chip::app::Clusters::OnOff::Attributes::OnOff::Id) { s_on = *value != 0; set_onoff(s_on); }
+    if (cluster_id == chip::app::Clusters::LevelControl::Id && attribute_id == chip::app::Clusters::LevelControl::Attributes::CurrentLevel::Id) { s_level = *value; set_level(s_level); }
+    if (cluster_id == chip::app::Clusters::ColorControl::Id && attribute_id == chip::app::Clusters::ColorControl::Attributes::ColorTemperatureMireds::Id) { s_ct = *reinterpret_cast<uint16_t *>(value); set_ct(s_ct); }
+}
+
+extern "C" void init_matter(void) {
+    node::config_t node_config;
+    node_t *node = node::create(&node_config, nullptr);
+{% for endpoint in endpoints %}
+    endpoint::extended_color_light::config_t ep_{{ loop.index }}_config;
+    endpoint_t *ep_{{ loop.index }} = endpoint::extended_color_light::create(node, &ep_{{ loop.index }}_config, ENDPOINT_FLAG_NONE, nullptr);
+    cluster_t *ep_{{ loop.index }}_onoff = cluster::get(ep_{{ loop.index }}, chip::app::Clusters::OnOff::Id);
+    cluster_t *ep_{{ loop.index }}_level = cluster::get(ep_{{ loop.index }}, chip::app::Clusters::LevelControl::Id);
+    cluster_t *ep_{{ loop.index }}_color = cluster::get(ep_{{ loop.index }}, chip::app::Clusters::ColorControl::Id);
+    if (ep_{{ loop.index }}_onoff) { bool init_on = {{ 'true' if endpoint.clusters.on_off.state|default(true) else 'false' }}; uint8_t init_on_raw = init_on ? 1 : 0; attribute::set(ep_{{ loop.index }}_onoff, chip::app::Clusters::OnOff::Attributes::OnOff::Id, &init_on_raw); }
+    if (ep_{{ loop.index }}_level) { uint8_t init_level = {{ endpoint.clusters.level_control.current_level|default(128) }}; attribute::set(ep_{{ loop.index }}_level, chip::app::Clusters::LevelControl::Attributes::CurrentLevel::Id, &init_level); }
+    if (ep_{{ loop.index }}_color) { uint16_t init_ct = {{ endpoint.clusters.color_control.color_temperature_mireds|default(350) }}; attribute::set(ep_{{ loop.index }}_color, chip::app::Clusters::ColorControl::Attributes::ColorTemperatureMireds::Id, &init_ct); }
+{% endfor %}
+    attribute::add_callback(nullptr, matter_attribute_update_callback);
+    chip::Server::GetInstance().Init();
+}
