@@ -1,0 +1,21 @@
+#include "driver/gpio.h"
+
+#define BTN_GPIO {{ app.buttons[0].gpio if app.buttons else 9 }}
+static volatile bool pressed;
+
+static void IRAM_ATTR isr(void* arg) {
+    pressed = true;
+}
+
+void button_init(void) {
+    gpio_config_t io = { .pin_bit_mask = 1ULL << BTN_GPIO, .mode = GPIO_MODE_INPUT, .pull_up_en = {{ 1 if app.buttons and app.buttons[0].active_level == 0 else 0 }}, .pull_down_en = {{ 1 if app.buttons and app.buttons[0].active_level == 1 else 0 }}, .intr_type = {{ 'GPIO_INTR_NEGEDGE' if app.buttons and app.buttons[0].active_level == 0 else 'GPIO_INTR_POSEDGE' }} };
+    gpio_config(&io);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(BTN_GPIO, isr, NULL);
+}
+
+bool button_consume_press(void) {
+    bool v = pressed;
+    pressed = false;
+    return v;
+}

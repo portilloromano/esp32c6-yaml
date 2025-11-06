@@ -1,0 +1,24 @@
+#include "driver/gpio.h"
+extern "C" void led_strip_init(void);
+extern "C" void led_strip_set_rgb(uint8_t,uint8_t,uint8_t);
+extern "C" void button_init(void);
+extern "C" bool button_consume_press(void);
+extern "C" void init_matter(void);
+extern "C" bool get_onoff(void);
+
+static bool s_on;
+
+extern "C" void set_onoff(bool v) { s_on = v; if (v) { led_strip_set_rgb(255,255,255); } else { led_strip_set_rgb(0,0,0); } }
+extern "C" void set_level(uint8_t v) { if (s_on) { uint8_t c = v; led_strip_set_rgb(c,c,c); } }
+extern "C" void set_ct(uint16_t v) { if (s_on) { led_strip_set_rgb(255,255,255); } }
+
+extern "C" void app_main(void) {
+    led_strip_init();
+    button_init();
+    init_matter();
+    s_on = get_onoff();
+    while (1) {
+        if (button_consume_press()) { set_onoff(!s_on); }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}

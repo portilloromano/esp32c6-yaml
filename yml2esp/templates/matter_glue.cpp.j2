@@ -1,0 +1,39 @@
+#include <esp_matter.h>
+#include <app/server/Server.h>
+
+using namespace chip;
+using namespace esp_matter;
+
+static uint8_t s_on = {{ 1 if app.endpoints[0].clusters.on_off.state|default(true) else 0 }};
+static uint8_t s_level = {{ app.endpoints[0].clusters.level_control.current_level|default(128) }};
+static uint16_t s_ct = {{ app.endpoints[0].clusters.color_control.color_temperature_mireds|default(350) }};
+
+extern "C" void set_onoff(bool v);
+extern "C" void set_level(uint8_t v);
+extern "C" void set_ct(uint16_t v);
+
+extern "C" bool get_onoff() { return s_on; }
+
+extern "C" void matter_attribute_update_callback(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id, uint32_t attribute_id, uint8_t *value, uint16_t size) {
+    if (cluster_id == chip::app::Clusters::OnOff::Id && attribute_id == chip::app::Clusters::OnOff::Attributes::OnOff::Id) { s_on = *value; set_onoff(s_on); }
+    if (cluster_id == chip::app::Clusters::LevelControl::Id && attribute_id == chip::app::Clusters::LevelControl::Attributes::CurrentLevel::Id) { s_level = *value; set_level(s_level); }
+    if (cluster_id == chip::app::Clusters::ColorControl::Id && attribute_id == chip::app::Clusters::ColorControl::Attributes::ColorTemperatureMireds::Id) { s_ct = *((uint16_t*)value); set_ct(s_ct); }
+}
+
+extern "C" void init_matter(void) {
+    node::config_t node_config;
+    node_t *node = node::create(&node_config, nullptr);
+    endpoint::extended_color_light::config_t ep_cfg;
+    endpoint_t *endpoint = endpoint::extended_color_light::create(node, &ep_cfg, ENDPOINT_FLAG_NONE, nullptr);
+    cluster_t *onoff = cluster::get(endpoint, chip::app::Clusters::OnOff::Id);
+    cluster_t *level = cluster::get(endpoint, chip::app::Clusters::LevelControl::Id);
+    cluster_t *color = cluster::get(endpoint, chip::app::Clusters::ColorControl::Id);
+    uint8_t on_init = s_on;
+    uint8_t lvl_init = s_level;
+    uint16_t ct_init = s_ct;
+    attribute::set(onoff, chip::app::Clusters::OnOff::Attributes::OnOff::Id, &on_init);
+    attribute::set(level, chip::app::Clusters::LevelControl::Attributes::CurrentLevel::Id, &lvl_init);
+    attribute::set(color, chip::app::Clusters::ColorControl::Attributes::ColorTemperatureMireds::Id, &ct_init);
+    attribute::add_callback(nullptr, matter_attribute_update_callback);
+    chip::Server::GetInstance().Init();
+}

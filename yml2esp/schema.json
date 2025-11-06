@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "app",
+    "fabrication"
+  ],
+  "properties": {
+    "app": {
+      "type": "object",
+      "required": [
+        "device_type",
+        "device_name",
+        "flash_size",
+        "network",
+        "endpoints"
+      ],
+      "properties": {
+        "device_type": {
+          "type": "string",
+          "enum": [
+            "light",
+            "switch",
+            "outlet",
+            "custom"
+          ]
+        },
+        "device_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flash_size": {
+          "type": "string"
+        },
+        "network": {
+          "type": "object",
+          "required": [
+            "connectivity"
+          ],
+          "properties": {
+            "connectivity": {
+              "type": "string",
+              "enum": [
+                "wifi",
+                "thread"
+              ]
+            }
+          }
+        },
+        "buttons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "gpio",
+              "active_level",
+              "long_press_time_ms",
+              "short_press_timeout_ms",
+              "identify_trigger_count",
+              "identify_time_s",
+              "mode",
+              "action"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "gpio": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active_level": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "long_press_time_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "short_press_timeout_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "identify_trigger_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "identify_time_s": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "remote"
+                ]
+              },
+              "action": {
+                "type": "object",
+                "required": [
+                  "cluster",
+                  "command"
+                ],
+                "properties": {
+                  "cluster": {
+                    "type": "string",
+                    "enum": [
+                      "on_off",
+                      "level_control",
+                      "color_control",
+                      "identify",
+                      "groups",
+                      "scenes_management"
+                    ]
+                  },
+                  "command": {
+                    "type": "string"
+                  },
+                  "target_endpoint": {
+                    "type": "integer"
+                  },
+                  "driver": {
+                    "type": "string",
+                    "enum": [
+                      "light",
+                      "relay",
+                      "none"
+                    ]
+                  }
+                }
+              },
+              "binding_endpoint": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "led_strip": {
+          "type": "object",
+          "required": [
+            "led_count",
+            "rmt_gpio",
+            "type"
+          ],
+          "properties": {
+            "led_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rmt_gpio": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "ws2812",
+                "sk6812",
+                "apa106"
+              ]
+            }
+          }
+        },
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "device_type",
+              "clusters"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "device_type": {
+                "type": "string"
+              },
+              "clusters": {
+                "type": "object",
+                "properties": {
+                  "identify": {
+                    "type": "object"
+                  },
+                  "groups": {
+                    "type": "object"
+                  },
+                  "scenes_management": {
+                    "type": "object",
+                    "properties": {
+                      "scene_table_size": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  },
+                  "on_off": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "boolean"
+                      },
+                      "features": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "level_control": {
+                    "type": "object",
+                    "properties": {
+                      "current_level": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 254
+                      },
+                      "features": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "color_control": {
+                    "type": "object",
+                    "properties": {
+                      "color_mode": {
+                        "type": "string"
+                      },
+                      "enhanced_color_mode": {
+                        "type": "string"
+                      },
+                      "color_temperature_mireds": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "features": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "fabrication": {
+      "type": "object",
+      "required": [
+        "port",
+        "chip_target",
+        "vendor_id",
+        "vendor_name",
+        "product_id",
+        "product_name",
+        "device_type_id",
+        "hardware_version"
+      ],
+      "properties": {
+        "port": {
+          "type": "string"
+        },
+        "chip_target": {
+          "type": "string"
+        },
+        "vendor_id": {
+          "type": "string"
+        },
+        "vendor_name": {
+          "type": "string"
+        },
+        "product_id": {
+          "type": "string"
+        },
+        "product_name": {
+          "type": "string"
+        },
+        "device_type_id": {
+          "type": "string"
+        },
+        "hardware_version": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

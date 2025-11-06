@@ -1,0 +1,16 @@
+#include "led_strip.h"
+#include "driver/rmt_tx.h"
+
+static led_strip_handle_t strip;
+
+void led_strip_init(void) {
+    led_strip_config_t led_config = { .strip_gpio_num = {{ app.led_strip.rmt_gpio }}, .max_leds = {{ app.led_strip.led_count }} };
+    rmt_tx_channel_config_t rmt_config = { .clk_src = RMT_CLK_SRC_DEFAULT, .gpio_num = {{ app.led_strip.rmt_gpio }}, .mem_block_symbols = 64, .resolution_hz = 10000000, .trans_queue_depth = 4 };
+    led_strip_new_rmt_device(&led_config, &rmt_config, &strip);
+    led_strip_clear(strip);
+}
+
+void led_strip_set_rgb(uint8_t r, uint8_t g, uint8_t b) {
+    led_strip_set_pixel(strip, 0, r, g, b);
+    led_strip_refresh(strip);
+}
