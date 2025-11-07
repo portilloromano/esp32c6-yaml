@@ -30,11 +30,11 @@ partitions_ota:
   when:
     fabrication.partitions.scheme: ota
   templates:
-    - template: ../templates/partitions.csv_8MB
+    - template: partitions.csv_8MB
       output: main/partitions.csv
       when:
         app.flash_size: 8MB
-    - template: ../templates/partitions.csv_16MB
+    - template: partitions.csv_16MB
       output: main/partitions.csv
       when:
         app.flash_size: 16MB
@@ -44,19 +44,20 @@ partitions_4mb:
   when:
     app.flash_size: 4MB
   templates:
-    - template: ../templates/partitions.csv_4MB
+    - template: partitions.csv_4MB
       output: main/partitions.csv
 
 partitions_8mb:
   when:
     app.flash_size: 8MB
   templates:
-    - template: ../templates/partitions.csv_8MB
+    - template: partitions.csv_8MB
       output: main/partitions.csv
 
 partitions_16mb:
   when:
     app.flash_size: 16MB
   templates:
-    - template: ../templates/partitions.csv_16MB
+    - template: partitions.csv_16MB
       output: main/partitions.csv
+

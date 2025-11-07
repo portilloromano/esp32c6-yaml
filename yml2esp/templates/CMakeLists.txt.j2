@@ -1,9 +1,57 @@
 cmake_minimum_required(VERSION 3.16)
 set(PROJECT_NAME light)
+
+# ---- CHIP / ZAP paths ----
+if(NOT DEFINED CHIP_ROOT)
+  if(DEFINED ENV{CHIP_ROOT})
+    set(CHIP_ROOT $ENV{CHIP_ROOT} CACHE PATH "Matter (CHIP) root")
+  elseif(DEFINED ENV{ESP_MATTER_PATH})
+    set(CHIP_ROOT "$ENV{ESP_MATTER_PATH}/connectedhomeip/connectedhomeip" CACHE PATH "Matter (CHIP) root")
+  endif()
+endif()
+
+# Compatibilidad con CMake de esp-matter (usa MATTER_SDK_PATH)
+if(NOT DEFINED MATTER_SDK_PATH)
+  set(MATTER_SDK_PATH "${CHIP_ROOT}" CACHE PATH "Matter (CHIP) root (compat)")
+endif()
+
+if(NOT DEFINED ZAP_GENERATED_ROOT)
+  if(DEFINED ENV{ZAP_GENERATED_ROOT})
+    set(ZAP_GENERATED_ROOT $ENV{ZAP_GENERATED_ROOT} CACHE PATH "ZAP generated folder")
+  elseif(DEFINED CHIP_ROOT)
+    set(ZAP_GENERATED_ROOT "${CHIP_ROOT}/zzz_generated" CACHE PATH "ZAP generated folder")
+  endif()
+endif()
+
+# Propagar a entorno para CMake internos
+set(ENV{CHIP_ROOT} "${CHIP_ROOT}")
+set(ENV{MATTER_SDK_PATH} "${MATTER_SDK_PATH}")
+set(ENV{ZAP_GENERATED_ROOT} "${ZAP_GENERATED_ROOT}")
+
+message(STATUS "Using CHIP_ROOT=${CHIP_ROOT}")
+message(STATUS "Using MATTER_SDK_PATH=${MATTER_SDK_PATH}")
+message(STATUS "Using ZAP_GENERATED_ROOT=${ZAP_GENERATED_ROOT}")
+
+# Validaciones tempranas
+if(NOT EXISTS "${MATTER_SDK_PATH}/src/app/server")
+  message(FATAL_ERROR "Invalid MATTER_SDK_PATH: ${MATTER_SDK_PATH} (missing src/app/server)")
+endif()
+if(NOT EXISTS "${ZAP_GENERATED_ROOT}/app-common/app-common/zap-generated/attributes")
+  message(FATAL_ERROR "Invalid ZAP_GENERATED_ROOT: ${ZAP_GENERATED_ROOT} (missing app-common attributes)")
+endif()
+
+# ---- ESP-IDF project ----
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 add_compile_definitions(CHIP_HAVE_CONFIG_H)
 add_compile_options(-Os)
-set(EXTRA_COMPONENT_DIRS $ENV{ESP_MATTER_PATH}/components $ENV{ESP_MATTER_PATH}/connectedhomeip/connectedhomeip/config/esp32/components)
+
+# esp-matter components (antes de project())
+set(EXTRA_COMPONENT_DIRS
+    $ENV{ESP_MATTER_PATH}/components
+    ${MATTER_SDK_PATH}/config/esp32/components
+)
+
 project(${PROJECT_NAME})

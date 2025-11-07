@@ -13,21 +13,23 @@
         "idf.espMatterPath": "/opt/espressif/esp-matter",
         "idf.gitPath": "/usr/bin/git",
         "idf.pythonBinPath": "/opt/espressif/tools/python_env/idf5.4_py3.12_env/bin/python",
-        "idf.customExtraPaths": "/opt/espressif/esp-idf/tools:/opt/espressif/tools/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin:/opt/espressif/tools/tools/esp32ulp-elf/2.38_20240113/esp32ulp-elf/bin",
+        "idf.customExtraPaths": "/opt/espressif/esp-idf/tools:/opt/espressif/tools/tools/riscv32-esp-elf/esp-14.2.0_20241119/riscv32-esp-elf/bin:/opt/espressif/tools/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin:/opt/espressif/tools/tools/esp32ulp-elf/2.38_20240113/esp32ulp-elf/bin",
         "idf.customExtraVars": {
           "IDF_CCACHE_ENABLE": "1",
           "IDF_PATH": "/opt/espressif/esp-idf",
-          "ESP_MATTER_PATH": "/opt/espressif/esp-matter"
+          "ESP_MATTER_PATH": "/opt/espressif/esp-matter",
+          "CHIP_ROOT": "/opt/espressif/esp-matter/connectedhomeip/connectedhomeip",
+          "ZAP_GENERATED_ROOT": "/opt/espressif/esp-matter/connectedhomeip/connectedhomeip/zzz_generated"
         }
-      },
-      "extensions": [
-        "espressif.esp-idf-extension",
-        "espressif.esp-idf-web",
-        "ms-vscode.cpptools",
-        "ms-python.python",
-        "twxs.cmake"
-      ]
-    }
+      }
+    },
+    "extensions": [
+      "espressif.esp-idf-extension",
+      "espressif.esp-idf-web",
+      "ms-vscode.cpptools",
+      "ms-python.python",
+      "twxs.cmake"
+    ]
   },
   "runArgs": [
     "--privileged",
@@ -39,8 +41,10 @@
   "containerEnv": {
     "IDF_PATH": "/opt/espressif/esp-idf",
     "ESP_MATTER_PATH": "/opt/espressif/esp-matter",
+    "CHIP_ROOT": "/opt/espressif/esp-matter/connectedhomeip/connectedhomeip",
+    "ZAP_GENERATED_ROOT": "/opt/espressif/esp-matter/connectedhomeip/connectedhomeip/zzz_generated",
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"
   },
-  "postStartCommand": "bash -lc 'VENV=/opt/espressif/tools/python_env/idf5.4_py3.12_env; grep -q \"^export PATH=\\\"$VENV/bin:\\$PATH\\\"$\" ~/.bashrc || echo export PATH=\\\"$VENV/bin:\\$PATH\\\" >> ~/.bashrc; grep -q \"esp-idf/export.sh\" ~/.bashrc || echo source $IDF_PATH/export.sh >> ~/.bashrc; grep -q \"esp-matter/export.sh\" ~/.bashrc || echo source $ESP_MATTER_PATH/export.sh >> ~/.bashrc'"
+  "postStartCommand": "bash .devcontainer/postStart.sh"
 }
